@@ -1,26 +1,204 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens จาก Figma (SHARKZEN Order)
+ * แก้สีที่นี่ที่เดียว แล้วใช้ผ่าน class เช่น bg-primary, text-muted-foreground, border-border
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* พื้นหลัง */
+  --background: #f8fafc; /* พื้นหลังหน้า */
+  --surface: #ffffff; /* การ์ด, header, input */
+  --muted: #f8fafc; /* พื้นที่รอง เช่น chip ที่ไม่ได้เลือก */
+
+  /* ข้อความ / เส้นขอบ */
+  --foreground: #1f2937;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+
+  /* หลัก (น้ำเงิน) */
+  --primary: #3b82f6;
+  --primary-strong: #1d4ed8; /* ราคา, ข้อความเน้น, hover ปุ่ม */
+  --primary-soft: #eff6ff; /* พื้นหลังอ่อน */
+  --primary-muted: #dbeafe;
+  --primary-foreground: #ffffff;
+
+  /* สถานะ: สำเร็จ / เตือน / ผิดพลาด */
+  --success: #22c55e;
+  --success-strong: #15803d;
+  --success-soft: #f0fdf4;
+  --warning: #f59e0b;
+  --warning-strong: #92400e;
+  --warning-soft: #fffbeb;
+  --danger: #ef4444;
+  --danger-strong: #b91c1c;
+  --danger-soft: #fef2f2;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+
+  --color-primary: var(--primary);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-muted: var(--primary-muted);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-success: var(--success);
+  --color-success-strong: var(--success-strong);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-strong: var(--warning-strong);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-strong: var(--danger-strong);
+  --color-danger-soft: var(--danger-soft);
+
+  /* รัศมีมุมตามดีไซน์: 6 / 8 / 10 / 16 px และ rounded-full สำหรับ chip */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 16px;
+
+  --font-sans: var(--font-noto-sans-thai);
+  --font-display: var(--font-kanit);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ลายตารางจางๆ เป็นพื้นหลังของ Hero (จางลงตามระยะจากมุมขวาบน) */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse at 75% 35%, #000 0%, transparent 70%);
+}
+
+/* เงาตามดีไซน์ ใช้เป็น shadow-card / shadow-float */
+@theme {
+  --shadow-card: 0 8px 24px 0 rgb(20 43 74 / 0.05);
+  --shadow-float: 0 20px 56px 0 rgb(20 43 74 / 0.09);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* เลื่อนนุ่มเมื่อกดลิงก์ไปยัง section (เว้นผู้ที่ตั้งค่าลดการเคลื่อนไหว) */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ซ่อนปุ่มแสดงรหัสผ่านที่ Edge/Chrome ใส่มาให้ เพราะเรามีปุ่มของตัวเองแล้ว (กันตาซ้ำ) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+input::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* แถบเลื่อนบางๆ โทนเดียวกับเส้นขอบของเว็บ ใช้กับพื้นที่เลื่อนในแถบนำทาง */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background-color: var(--border);
+  border-radius: 9999px;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--muted-foreground);
+}
+
+/* ไอน้ำของไอคอนหม้อ (สถานะกำลังทำ): ลอยขึ้นและจางหาย เฉพาะผู้ที่ไม่ได้ตั้งค่าลดการเคลื่อนไหว */
+@media (prefers-reduced-motion: no-preference) {
+  .steam {
+    transform-box: fill-box;
+    animation: steam-rise 1.8s ease-in-out infinite;
+  }
+  .steam-2 {
+    animation-delay: 0.6s;
+  }
+  .steam-3 {
+    animation-delay: 1.2s;
+  }
+}
+
+@keyframes steam-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* กระดิ่งสั่นช่วงสั้นๆ แล้วพักก่อนสั่นรอบถัดไป เพื่อเรียกความสนใจโดยไม่รบกวนสายตา */
+@media (prefers-reduced-motion: no-preference) {
+  .bell-ring {
+    transform-origin: 50% 12%;
+    animation: bell-ring 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes bell-ring {
+  0%,
+  55%,
+  100% {
+    transform: rotate(0);
+  }
+  8% {
+    transform: rotate(16deg);
+  }
+  16% {
+    transform: rotate(-14deg);
+  }
+  24% {
+    transform: rotate(11deg);
+  }
+  32% {
+    transform: rotate(-9deg);
+  }
+  40% {
+    transform: rotate(5deg);
+  }
+  48% {
+    transform: rotate(-3deg);
+  }
+}
+
+/* ออเดอร์ใหม่ที่เพิ่งเข้ามา: วงแหวนสีฟ้าขยายออกซ้ำๆ ให้เห็นชัดโดยไม่ต้องอ่านข้อความ */
+@media (prefers-reduced-motion: no-preference) {
+  .order-fresh {
+    animation: order-fresh 1.1s ease-out 9;
+  }
+}
+
+@keyframes order-fresh {
+  0% {
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgb(59 130 246 / 0);
+  }
 }

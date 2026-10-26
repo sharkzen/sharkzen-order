@@ -1,0 +1,16 @@
+export const ROUTES = {
+  home: "/",
+  login: "/login",
+  register: "/register",
+  terms: "/terms",
+  privacy: "/privacy",
+  dashboard: "/dashboard",
+  menu: "/menu",
+  tables: "/tables",
+  kitchen: "/kitchen",
+  reports: "/reports",
+  staff: "/staff",
+  settings: "/settings",
+  orders: "/orders",
+  order: (id: string | number) => `/orders/${id}`,
+} as const;
