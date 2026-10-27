@@ -45,6 +45,8 @@ model Order {
   tableId       String
   status        OrderStatus   @default(NEW)
   paymentStatus PaymentStatus @default(UNPAID)
+  paidAt        DateTime?
+  stripeSessionId String?     @unique
   total         Decimal       @db.Decimal(10, 2)
   notes         String[]
   items         OrderItem[]
@@ -68,4 +70,46 @@ model OrderItem {
   cancelReason String?
 
   @@index([orderId])
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum AuthCodeType {
+  EMAIL_OTP
+  PASSWORD_RESET
+}
+
+model User {
+  id              String       @id @default(cuid())
+  email           String       @unique
+  firstName       String
+  lastName        String
+  passwordHash    String
+  emailVerifiedAt DateTime?
+  acceptedTermsAt DateTime
+  marketingConsent Boolean     @default(false)
+  plan            String?
+  billingCycle    BillingCycle?
+  authCodes       AuthCode[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+/// OTP ยืนยันอีเมล และ token รีเซ็ตรหัสผ่าน เก็บเฉพาะค่า hash ไม่เก็บรหัสจริง
+model AuthCode {
+  id         String       @id @default(cuid())
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  type       AuthCodeType
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int          @default(0)
+  consumedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([userId, type])
+  @@index([codeHash])
 }

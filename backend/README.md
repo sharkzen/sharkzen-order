@@ -38,4 +38,13 @@ Flow: `route -> controller -> service -> prisma`
 - `GET /api/health`
 - `GET /api/orders?status=NEW` · `GET /api/orders/:id`
 - `POST /api/orders` · `PATCH /api/orders/:id/status`
+- `POST /api/payments/checkout` body `{ orderId }` -> `{ url }` (Stripe Checkout)
+- `POST /api/payments/webhook` (Stripe เรียก, ตรวจลายเซ็นจาก raw body)
 - Socket.IO events: `order:created`, `order:updated`
+
+## Stripe (โหมดทดสอบ)
+
+1. ใส่ `STRIPE_SECRET_KEY=sk_test_...` ใน `.env`
+2. `stripe listen --forward-to localhost:3001/api/payments/webhook` แล้วเอา `whsec_...` ใส่ `STRIPE_WEBHOOK_SECRET`
+3. เรียก `POST /api/payments/checkout` เปิด `url` จ่ายด้วยบัตรทดสอบ `4242 4242 4242 4242`
+4. webhook จะเปลี่ยน order เป็น PAID และ emit `order:updated`
