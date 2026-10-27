@@ -1,0 +1,23 @@
+name: sharkzen-order
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: sharkzen-order-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sharkzen
+      POSTGRES_PASSWORD: sharkzen
+      POSTGRES_DB: sharkzen_order
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sharkzen -d sharkzen_order"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
