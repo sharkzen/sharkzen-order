@@ -13,5 +13,7 @@ export interface Paginated<T> {
 
 export interface ApiErrorBody {
   message?: string;
+  /** รหัสให้ตัดสินใจต่อ เช่น EMAIL_NOT_VERIFIED, OTP_LOCKED */
+  code?: string;
   errors?: Record<string, string[]>;
 }

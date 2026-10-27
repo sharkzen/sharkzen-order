@@ -2,29 +2,53 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Checkbox, FormField, Input } from "@/components/ui";
-import { clientHttp } from "@/lib/http/client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ROUTES } from "@/constants/routes";
+import { toApiError } from "@/lib/http/api-error";
 import { notify } from "@/lib/toast";
+import { authApi } from "../lib/auth-api";
+import { OtpStep } from "./otp-step";
 import { PasswordInput } from "./password-input";
 
 export function LoginForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  /** บัญชีที่ยังไม่ยืนยันอีเมล: backend ส่ง OTP ให้แล้ว พาไปกรอกรหัสต่อ */
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string>();
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     setLoading(true);
     try {
-      await clientHttp.post("/auth/login", {
-        email: form.get("email"),
-        password: form.get("password"),
-        remember: form.get("remember") === "on",
-      });
+      const email = String(form.get("email") ?? "").trim();
+      await authApi.login(
+        email,
+        String(form.get("password") ?? ""),
+        form.get("remember") === "on",
+      );
       notify.success("เข้าสู่ระบบสำเร็จ");
+      router.push(ROUTES.dashboard);
     } catch (error) {
-      notify.error(error);
+      if (toApiError(error).code === "EMAIL_NOT_VERIFIED") {
+        setUnverifiedEmail(String(form.get("email") ?? "").trim());
+      } else {
+        notify.error(error);
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  if (unverifiedEmail) {
+    return (
+      <OtpStep
+        email={unverifiedEmail}
+        onBack={() => setUnverifiedEmail(undefined)}
+        onVerified={() => router.push(ROUTES.onboardingPlan)}
+      />
+    );
   }
 
   return (
@@ -59,7 +83,15 @@ export function LoginForm() {
             required
           />
         </FormField>
-        <Checkbox name="remember" label="จดจำฉันไว้ในอุปกรณ์นี้" />
+        <div className="flex items-center justify-between gap-3">
+          <Checkbox name="remember" label="จดจำฉันไว้ในอุปกรณ์นี้" />
+          <Link
+            href={ROUTES.forgotPassword}
+            className="text-primary-strong text-sm font-semibold underline-offset-2 hover:underline"
+          >
+            ลืมรหัสผ่าน?
+          </Link>
+        </div>
         <Button type="submit" size="lg" loading={loading} className="h-[52px]">
           เข้าสู่ระบบ
         </Button>

@@ -16,7 +16,11 @@ import { AuthSwitch } from "./auth-switch";
  * อยู่ใน layout จึงไม่ถูกสร้างใหม่ตอนสลับหน้า ส่วนฟอร์มเลื่อนเข้ามาผ่าน template.tsx
  */
 export function AuthShell({ children }: { children: ReactNode }) {
-  const mode = getAuthMode(usePathname());
+  const pathname = usePathname();
+  const mode = getAuthMode(pathname);
+  // หน้าลืม/ตั้งรหัสผ่านใหม่ไม่ต้องมีสวิตช์เข้าสู่ระบบ/สมัครสมาชิก
+  const showSwitch =
+    pathname.startsWith(ROUTES.login) || pathname.startsWith(ROUTES.register);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -39,7 +43,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
           <AuthShowcase mode={mode} />
 
           <div className="border-border bg-surface shadow-float mx-auto flex w-full max-w-[480px] flex-col gap-7 rounded-xl border p-6 sm:p-9">
-            <AuthSwitch mode={mode} />
+            {showSwitch && <AuthSwitch mode={mode} />}
             {children}
           </div>
         </div>

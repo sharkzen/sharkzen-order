@@ -2,10 +2,13 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button, Checkbox, FormField, Input } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { clientHttp } from "@/lib/http/client";
+import { TRIAL_DAYS, type BillingCycle, type PlanId } from "@/features/landing/data";
 import { notify } from "@/lib/toast";
+import { authApi } from "../lib/auth-api";
+import { OtpStep } from "./otp-step";
 import { PasswordInput } from "./password-input";
 import { PasswordStrengthMeter } from "./password-strength-meter";
 
@@ -27,7 +30,15 @@ function validate(values: Record<Field, string>, accepted: boolean): Errors {
   return errors;
 }
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  /** แพ็กเกจที่เลือกมาจากหน้าแรก (ไม่มีช่องเลือกในหน้านี้ ส่งต่อไปหน้าเลือกแพ็กเกจหลังยืนยันอีเมล) */
+  plan?: PlanId;
+  billing?: BillingCycle;
+}
+
+export function RegisterForm({ plan, billing }: RegisterFormProps) {
+  const router = useRouter();
+  const [pendingEmail, setPendingEmail] = useState<string>();
   const [loading, setLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Errors>({});
@@ -51,20 +62,32 @@ export function RegisterForm() {
 
     setLoading(true);
     try {
-      await clientHttp.post("/auth/register", {
+      const { data } = await authApi.register({
         firstName: values.firstName.trim(),
         lastName: values.lastName.trim(),
-        email: values.email,
+        email: values.email.trim(),
         password: values.password,
         acceptedTerms: true,
         marketingConsent: form.get("marketing") === "on",
+        plan,
+        billing: plan ? billing : undefined,
       });
-      notify.success("สมัครสมาชิกสำเร็จ", "ยินดีต้อนรับสู่ SHARKZEN ORDER");
+      setPendingEmail(data.email);
     } catch (error) {
       notify.error(error);
     } finally {
       setLoading(false);
     }
+  }
+
+  if (pendingEmail) {
+    return (
+      <OtpStep
+        email={pendingEmail}
+        onBack={() => setPendingEmail(undefined)}
+        onVerified={() => router.push(ROUTES.onboardingPlan)}
+      />
+    );
   }
 
   return (
@@ -74,7 +97,7 @@ export function RegisterForm() {
           สมัครสมาชิก
         </h1>
         <p className="text-muted-foreground text-sm">
-          ทดลองใช้ฟรี 14 วัน ไม่ต้องใช้บัตรเครดิต
+          ทดลองใช้ฟรี {TRIAL_DAYS} วัน ไม่ต้องใช้บัตรเครดิต
         </p>
       </div>
 
@@ -182,19 +205,10 @@ export function RegisterForm() {
               </p>
             )}
           </div>
-          <Checkbox
-            name="marketing"
-            label={
-              <span className="text-muted-foreground text-[13px] leading-relaxed">
-                ฉันต้องการรับข่าวสารและโปรโมชันทางอีเมล (ไม่บังคับ
-                ยกเลิกได้ทุกเมื่อ)
-              </span>
-            }
-          />
         </div>
 
         <Button type="submit" size="lg" loading={loading} className="h-[52px]">
-          สร้างบัญชี
+          สร้างบัญชีและรับรหัสยืนยัน
         </Button>
       </form>
     </div>

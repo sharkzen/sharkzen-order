@@ -1,17 +1,30 @@
+export type BillingCycle = "monthly" | "yearly";
+export type PlanId = "starter" | "growth" | "multi";
+
 export interface PricingPlan {
+  id: PlanId;
   name: string;
   description: string;
-  price: string;
+  /** ราคาต่อเดือน (บาท) เมื่อจ่ายรายเดือน */
+  monthly: number;
+  /** ราคาต่อปี (บาท) เมื่อจ่ายรายปี = จ่าย 10 เดือน ใช้ 12 เดือน */
+  yearly: number;
   cta: string;
   featured?: boolean;
   perks: string[];
 }
 
+/** รายปีแถมฟรีกี่เดือน (ใช้แสดงในป้ายและสรุปราคา) */
+export const YEARLY_FREE_MONTHS = 2;
+export const TRIAL_DAYS = 14;
+
 export const PRICING_PLANS: PricingPlan[] = [
   {
+    id: "starter",
     name: "เริ่มต้น",
     description: "สำหรับร้านเล็กที่อยากเริ่มอย่างคล่องตัว",
-    price: "1,290",
+    monthly: 399,
+    yearly: 3_990,
     cta: "เลือกแพ็กเกจนี้",
     perks: [
       "1 สาขา สูงสุด 15 โต๊ะ",
@@ -22,9 +35,11 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
+    id: "growth",
     name: "เติบโต",
     description: "สำหรับร้านที่ต้องการดูแลได้ครบกว่า",
-    price: "2,990",
+    monthly: 799,
+    yearly: 7_990,
     cta: "เริ่มทดลองฟรี",
     featured: true,
     perks: [
@@ -36,9 +51,11 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
   {
+    id: "multi",
     name: "หลายสาขา",
     description: "สำหรับธุรกิจที่พร้อมขยายความอร่อย",
-    price: "5,990",
+    monthly: 1_490,
+    yearly: 14_900,
     cta: "เลือกแพ็กเกจนี้",
     perks: [
       "ดูแลได้สูงสุด 3 สาขา",
@@ -49,3 +66,19 @@ export const PRICING_PLANS: PricingPlan[] = [
     ],
   },
 ];
+
+export const DEFAULT_PLAN_ID: PlanId = "growth";
+
+export const findPlan = (id: string | undefined) =>
+  PRICING_PLANS.find((plan) => plan.id === id);
+
+export const parseBilling = (value: string | undefined): BillingCycle =>
+  value === "monthly" ? "monthly" : "yearly";
+
+export const formatBaht = (amount: number) => amount.toLocaleString("en-US");
+
+/** ราคาเฉลี่ยต่อเดือนเมื่อจ่ายรายปี */
+export const yearlyPerMonth = (plan: PricingPlan) => Math.round(plan.yearly / 12);
+
+/** ประหยัดได้กี่บาทต่อปีเมื่อเลือกรายปีแทนรายเดือน */
+export const yearlySavings = (plan: PricingPlan) => plan.monthly * 12 - plan.yearly;
