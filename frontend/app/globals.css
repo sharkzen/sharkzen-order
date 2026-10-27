@@ -202,3 +202,54 @@ input::-webkit-credentials-auto-fill-button {
     box-shadow: 0 0 0 10px rgb(59 130 246 / 0);
   }
 }
+
+/* พิมพ์ QR โต๊ะ: ซ่อนทุกอย่างยกเว้นแผ่นพิมพ์ (#print-root) */
+@media print {
+  body > *:not(#print-root) {
+    display: none !important;
+  }
+}
+
+/* ขอบล่างของใบเสร็จแบบฉีกเป็นซี่ ใช้กับบิลในหน้าคิดเงิน */
+.receipt-edge {
+  --tooth: 10px;
+  padding-bottom: calc(var(--tooth) + 4px);
+  -webkit-mask:
+    conic-gradient(
+        from -45deg at bottom,
+        #0000,
+        #000 1deg 89deg,
+        #0000 90deg
+      )
+      bottom / var(--tooth) 100% repeat-x,
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth) / 2) no-repeat;
+  mask:
+    conic-gradient(
+        from -45deg at bottom,
+        #0000,
+        #000 1deg 89deg,
+        #0000 90deg
+      )
+      bottom / var(--tooth) 100% repeat-x,
+    linear-gradient(#000 0 0) top / 100% calc(100% - var(--tooth) / 2) no-repeat;
+}
+
+/* หน้าที่ต้องพอดีหนึ่งหน้าจอแบบ POS (ไม่เลื่อนทั้งหน้า): สูงเท่าจอลบแถบบน (h-16 / lg:h-20) และช่องว่างของ main */
+.pos-viewport {
+  height: calc(100dvh - 4rem - 2rem);
+}
+@media (min-width: 40rem) {
+  .pos-viewport {
+    height: calc(100dvh - 4rem - 3rem);
+  }
+}
+@media (min-width: 64rem) {
+  .pos-viewport {
+    height: calc(100dvh - 5rem - 4rem);
+  }
+}
+@media (min-width: 96rem) {
+  .pos-viewport {
+    height: calc(100dvh - 5rem - 5rem);
+  }
+}

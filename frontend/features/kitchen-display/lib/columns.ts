@@ -10,9 +10,9 @@ interface ColumnConfig {
   status: KitchenStatus;
   title: string;
   icon: Icon;
-  /** สีหัวคอลัมน์ (พื้น + เส้นล่าง) และสีไอคอน */
-  headerClassName: string;
-  iconClassName: string;
+  /** สีไอคอนในกล่องเล็กหน้าชื่อคอลัมน์ และสีตัวเลขจำนวนงาน */
+  chipClassName: string;
+  countClassName: string;
   /** ปุ่มหลักของการ์ดในคอลัมน์นี้ */
   actionLabel: string;
   actionIcon: Icon;
@@ -26,8 +26,8 @@ export const COLUMNS: ColumnConfig[] = [
     status: "new",
     title: "ใหม่",
     icon: RingingBellIcon,
-    headerClassName: "bg-primary-soft border-primary",
-    iconClassName: "text-primary",
+    chipClassName: "bg-primary-soft text-primary",
+    countClassName: "text-primary",
     actionLabel: "รับเข้าครัว",
     actionIcon: Play,
     emptyText: "ยังไม่มีออร์เดอร์ใหม่",
@@ -36,8 +36,8 @@ export const COLUMNS: ColumnConfig[] = [
     status: "preparing",
     title: "กำลังทำ",
     icon: CookingPotIcon,
-    headerClassName: "bg-warning-soft border-warning",
-    iconClassName: "text-warning",
+    chipClassName: "bg-warning-soft text-warning",
+    countClassName: "text-warning",
     actionLabel: "อาหารพร้อมเสิร์ฟ",
     actionIcon: ConciergeBell,
     emptyText: "ไม่มีงานที่กำลังทำ",
@@ -46,8 +46,8 @@ export const COLUMNS: ColumnConfig[] = [
     status: "ready",
     title: "พร้อมเสิร์ฟ",
     icon: ConciergeBell,
-    headerClassName: "bg-success-soft border-success",
-    iconClassName: "text-success",
+    chipClassName: "bg-success-soft text-success",
+    countClassName: "text-success",
     actionLabel: "ยืนยันเสิร์ฟแล้ว",
     actionIcon: CheckCheck,
     actionClassName: "bg-success hover:bg-success-strong",

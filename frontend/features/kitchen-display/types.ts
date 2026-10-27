@@ -33,8 +33,6 @@ export interface KitchenOrder {
    * เวลารอ = ticks ปัจจุบัน - since
    */
   since: number;
-  /** ช่องรับอาหารที่วางจานไว้ (เฉพาะสถานะพร้อมเสิร์ฟ) */
-  pickupSlot?: number;
   /** มีค่า = หน้าร้านยกเลิกแล้ว การ์ดจะค้างเป็นสีแดงให้ครัวกดรับทราบ */
   cancellation?: FrontCancellation;
 }

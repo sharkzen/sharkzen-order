@@ -12,5 +12,6 @@ export const ROUTES = {
   staff: "/staff",
   settings: "/settings",
   orders: "/orders",
+  cashier: "/cashier",
   order: (id: string | number) => `/orders/${id}`,
 } as const;

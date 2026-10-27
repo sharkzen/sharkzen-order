@@ -132,7 +132,8 @@ export function KitchenBoard({
       `หน้าร้านยกเลิกโต๊ะ ${target.table}`,
       `${target.id} • หยุดทำและกดรับทราบ`,
     );
-    if (settings.enabled) playAlert(settings.tone, settings.volume);
+    if (settings.enabled && settings.cancelEnabled)
+      playAlert(settings.cancelTone, settings.volume);
   }
 
   function simulateFrontCancel() {
@@ -154,7 +155,6 @@ export function KitchenBoard({
 
   function advance(order: KitchenOrder) {
     const next = NEXT_STATUS[order.status];
-    const readyCount = totalByStatus("ready");
 
     if (next === null) {
       setOrders((prev) => prev.filter((o) => o.id !== order.id));
@@ -170,7 +170,6 @@ export function KitchenBoard({
               ...o,
               status: next,
               since: ticks,
-              pickupSlot: next === "ready" ? (readyCount % 2) + 1 : undefined,
             }
           : o,
       ),

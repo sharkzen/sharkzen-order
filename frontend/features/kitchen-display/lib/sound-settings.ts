@@ -11,6 +11,10 @@ export interface SoundSettings {
   tone: AlertTone;
   /** เล่นซ้ำเป็นระยะจนกว่าจะรับออเดอร์ใหม่ครบ */
   repeat: boolean;
+  /** เปิดเสียงแจ้งเตือนเมื่อหน้าร้านยกเลิกงาน */
+  cancelEnabled: boolean;
+  /** เสียงตอนหน้าร้านยกเลิก แยกจากเสียงออเดอร์ใหม่ เพื่อให้ครัวแยกออกด้วยหู */
+  cancelTone: AlertTone;
 }
 
 export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
@@ -18,6 +22,8 @@ export const DEFAULT_SOUND_SETTINGS: SoundSettings = {
   volume: 0.7,
   tone: "chime",
   repeat: true,
+  cancelEnabled: true,
+  cancelTone: "alarm",
 };
 
 const KEY = "sharkzen-kitchen-sound";
@@ -52,6 +58,13 @@ function subscribe(listener: () => void) {
   };
 }
 
+/** เสียงที่เคยบันทึกไว้แต่ไม่มีให้เลือกแล้ว ให้กลับไปใช้เสียงเริ่มต้น */
+function validTone(value: unknown, fallback: AlertTone) {
+  return ALERT_TONES.some((tone) => tone.value === value)
+    ? (value as AlertTone)
+    : fallback;
+}
+
 function parse(raw: string): SoundSettings {
   if (!raw) return DEFAULT_SOUND_SETTINGS;
   try {
@@ -62,11 +75,14 @@ function parse(raw: string): SoundSettings {
         typeof value.volume === "number"
           ? Math.min(1, Math.max(0, value.volume))
           : DEFAULT_SOUND_SETTINGS.volume,
-      // เสียงที่เคยบันทึกไว้แต่ไม่มีให้เลือกแล้ว ให้กลับไปใช้เสียงเริ่มต้น
-      tone: ALERT_TONES.some((tone) => tone.value === value.tone)
-        ? (value.tone as AlertTone)
-        : DEFAULT_SOUND_SETTINGS.tone,
+      tone: validTone(value.tone, DEFAULT_SOUND_SETTINGS.tone),
       repeat: value.repeat ?? DEFAULT_SOUND_SETTINGS.repeat,
+      cancelEnabled:
+        value.cancelEnabled ?? DEFAULT_SOUND_SETTINGS.cancelEnabled,
+      cancelTone: validTone(
+        value.cancelTone,
+        DEFAULT_SOUND_SETTINGS.cancelTone,
+      ),
     };
   } catch {
     return DEFAULT_SOUND_SETTINGS;

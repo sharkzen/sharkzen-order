@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Ban, ChevronRight, ClipboardCheck, X } from "lucide-react";
+import { Ban, ChevronRight, ClipboardCheck, ListChecks, X } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { COLUMN_BY_STATUS } from "../lib/columns";
@@ -161,18 +161,21 @@ export function KitchenOrderCard({
             </li>
           );
         })}
-        {hiddenItems > 0 && (
-          <li>
-            <button
-              type="button"
-              onClick={() => onOpen(order)}
-              className="text-primary-strong hover:bg-primary-soft focus-visible:ring-primary/50 w-full cursor-pointer rounded-md px-2 py-1 text-left text-xs font-semibold focus-visible:ring-2 focus-visible:outline-none"
-            >
-              + อีก {hiddenItems} เมนู ({hiddenQuantity} ที่) • ดูทั้งหมด
-            </button>
-          </li>
-        )}
       </ul>
+
+      <button
+        type="button"
+        onClick={() => onOpen(order)}
+        className="bg-primary-soft text-primary-strong hover:bg-primary-muted focus-visible:ring-primary/50 flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-lg text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+      >
+        <ListChecks className="size-[18px]" aria-hidden />
+        ดูรายการทั้งหมด
+        {hiddenItems > 0 && (
+          <span className="bg-surface rounded-full px-2 py-0.5 text-xs">
+            +อีก {hiddenItems} เมนู ({hiddenQuantity} ที่)
+          </span>
+        )}
+      </button>
 
       {!cancelled && urgent && (
         <NoteStrip tone="alert">
@@ -185,9 +188,6 @@ export function KitchenOrderCard({
             {note}
           </NoteStrip>
         ))}
-      {!cancelled && order.status === "ready" && order.pickupSlot && (
-        <NoteStrip tone="ready">{`พร้อมที่ช่องรับอาหาร ${order.pickupSlot}`}</NoteStrip>
-      )}
 
       {cancelled ? (
         <Button

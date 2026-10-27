@@ -1,5 +1,7 @@
+import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { COLUMN_BY_STATUS } from "../lib/columns";
+import { isUrgent } from "../lib/kitchen-utils";
 import type { KitchenOrder, KitchenStatus } from "../types";
 import { KitchenOrderCard } from "./kitchen-order-card";
 
@@ -35,6 +37,9 @@ export function KitchenColumn({
 }: KitchenColumnProps) {
   const column = COLUMN_BY_STATUS[status];
   const Icon = column.icon;
+  const urgentCount = orders.filter((o) =>
+    isUrgent(o, ticks, urgentAfter),
+  ).length;
   const count = searching ? `${orders.length}/${total}` : String(total);
 
   return (
@@ -42,19 +47,31 @@ export function KitchenColumn({
       aria-label={`คอลัมน์${column.title}`}
       className="flex min-h-0 min-w-0 flex-col gap-3"
     >
-      <header
-        className={cn(
-          "flex h-12 shrink-0 items-center gap-2.5 rounded-xl border-b-[3px] px-4",
-          column.headerClassName,
-        )}
-      >
-        <Icon className={cn("size-5", column.iconClassName)} />
-        <h2 className="font-display text-foreground min-w-0 flex-1 text-lg font-semibold">
+      <header className="border-border flex shrink-0 items-center gap-3 border-b pb-3">
+        <span
+          aria-hidden
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            column.chipClassName,
+          )}
+        >
+          <Icon className="size-5" />
+        </span>
+        <h2 className="font-display text-foreground min-w-0 flex-1 text-xl font-semibold">
           {column.title}
         </h2>
+        {urgentCount > 0 && (
+          <span className="bg-danger-soft text-danger-strong flex h-7 items-center gap-1 rounded-full px-2.5 text-sm font-semibold">
+            <TriangleAlert className="size-3.5" aria-hidden />
+            เร่งด่วน {urgentCount}
+          </span>
+        )}
         <span
           aria-label={`${count} งาน`}
-          className="bg-surface text-foreground font-display flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-sm font-semibold tabular-nums"
+          className={cn(
+            "font-display text-3xl leading-none font-semibold tabular-nums",
+            column.countClassName,
+          )}
         >
           {count}
         </span>

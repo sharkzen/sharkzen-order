@@ -1,4 +1,5 @@
 import {
+  Banknote,
   ChartNoAxesCombined,
   ChefHat,
   LayoutDashboard,
@@ -20,6 +21,7 @@ export const SIDEBAR_NAV: NavItem[] = [
     count: 13,
     pageTitle: "จัดการคำสั่งซื้อ",
   },
+  { label: "คิดเงิน", href: ROUTES.cashier, icon: Banknote },
   {
     label: "เมนูอาหาร",
     href: ROUTES.menu,

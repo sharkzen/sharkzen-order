@@ -31,7 +31,6 @@ function order(
   total: number,
   payment: { state: PaymentState; method: string },
   notes: string[] = [],
-  pickupSlot?: number,
 ): KitchenOrder {
   return {
     id,
@@ -43,7 +42,6 @@ function order(
     payment,
     status,
     since: -waitMinutes * 60,
-    pickupSlot,
   };
 }
 
@@ -199,7 +197,6 @@ export const KITCHEN_ORDERS: KitchenOrder[] = [
     145,
     COUNTER,
     [],
-    1,
   ),
   order(
     "#01248",
@@ -211,7 +208,6 @@ export const KITCHEN_ORDERS: KitchenOrder[] = [
     280,
     TRANSFER,
     [],
-    2,
   ),
   order(
     "#01247",
@@ -223,7 +219,6 @@ export const KITCHEN_ORDERS: KitchenOrder[] = [
     185,
     CASH,
     [],
-    1,
   ),
 ];
 
