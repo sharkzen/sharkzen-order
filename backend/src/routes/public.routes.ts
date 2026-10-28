@@ -52,6 +52,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
         price: Number(item.price),
         image: item.image,
         available: item.available,
+        featured: item.featured,
         categoryId: item.categoryId,
         optionGroups: optionGroupsSchema.catch([]).parse(item.optionGroups),
       })),

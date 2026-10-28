@@ -52,7 +52,10 @@ export const menuItemBodySchema = z.object({
  * แก้ไขบางฟิลด์ (เช่น สลับพร้อมขาย) ต้องสร้างจาก shape ที่ไม่มี default
  * เพราะ zod 4 เติมค่า default ให้ฟิลด์ที่ไม่ได้ส่งแม้ใช้ partial() ทำให้หมวด รูป และรายละเอียดถูกล้างโดยไม่ตั้งใจ
  */
-export const menuItemPatchSchema = z.object(menuItemShape).partial();
+export const menuItemPatchSchema = z.object({ ...menuItemShape, featured: z.boolean() }).partial();
+
+/** เมนูแนะนำได้ไม่เกินกี่เมนูต่อร้าน */
+export const MAX_FEATURED = 4;
 
 /** เพิ่มหลายเมนูในครั้งเดียว (เรียงตามลำดับที่ส่งมา) */
 export const createItemsBodySchema = z.object({

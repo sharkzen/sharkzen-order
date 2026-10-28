@@ -1,7 +1,7 @@
 import type { Category, MenuItem } from "@prisma/client";
 import { prisma } from "@/lib/prisma.js";
 import { deleteImage, isOwnImage } from "@/lib/storage.js";
-import { optionGroupsSchema } from "@/schemas/menu.schema.js";
+import { MAX_FEATURED, optionGroupsSchema } from "@/schemas/menu.schema.js";
 import type {
   CategoryBody,
   MenuItemBody,
@@ -16,6 +16,7 @@ const itemDto = (item: MenuItem) => ({
   price: Number(item.price),
   image: item.image,
   available: item.available,
+  featured: item.featured,
   categoryId: item.categoryId,
   sortOrder: item.sortOrder,
   optionGroups: optionGroupsSchema.catch([]).parse(item.optionGroups),
@@ -64,7 +65,7 @@ async function removeItems(shopId: string, items: MenuItem[]) {
     prisma.menuItem.deleteMany({ where: { id: { in: unused } } }),
     prisma.menuItem.updateMany({
       where: { id: { in: ids.filter((id) => used.has(id)) } },
-      data: { deletedAt: new Date(), categoryId: null, image: "", available: false },
+      data: { deletedAt: new Date(), categoryId: null, image: "", available: false, featured: false },
     }),
   ]);
   for (const item of items) if (item.image) deleteImage(shopId, item.image);
@@ -180,6 +181,12 @@ export const menuService = {
     // รูปที่ไม่เปลี่ยน (URL เดิม) ผ่านได้แม้ R2 ถูกตั้งค่าใหม่ภายหลัง
     if (patch.image !== current.image) assertImage(shopId, patch.image);
     await assertCategory(shopId, patch.categoryId);
+    if (patch.featured && !current.featured) {
+      const featured = await prisma.menuItem.count({ where: { shopId, featured: true, deletedAt: null } });
+      if (featured >= MAX_FEATURED) {
+        throw new AppError(400, `แนะนำได้ไม่เกิน ${MAX_FEATURED} เมนู กรุณายกเลิกเมนูอื่นก่อน`, "FEATURED_LIMIT");
+      }
+    }
     const moved = patch.categoryId !== undefined && patch.categoryId !== current.categoryId;
     const item = await prisma.menuItem.update({
       where: { id },

@@ -126,6 +126,8 @@ model MenuItem {
   /// รูปเป็น data URL หรือ URL ภายนอก
   image       String      @default("")
   available   Boolean     @default(true)
+  /// เมนูแนะนำ (เมนูขายดี) แสดงบนสุดของหน้าสั่งอาหาร ร้านละไม่เกิน 4 เมนู
+  featured    Boolean     @default(false)
   /// ลำดับภายในหมวดเดียวกัน
   sortOrder   Int         @default(0)
   /// เมนูที่ลบแล้วแต่เคยถูกสั่ง เก็บแถวไว้ให้ประวัติออเดอร์อ้างอิงได้ (ไม่แสดงและสั่งไม่ได้)
