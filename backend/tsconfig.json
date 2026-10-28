@@ -11,6 +11,7 @@
     "noEmit": true,
     "outDir": "dist",
     "rootDir": ".",
+    "paths": { "@/*": ["./src/*"] },
     "types": ["node"]
   },
   "include": ["src", "prisma"]

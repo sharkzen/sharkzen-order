@@ -1,7 +1,6 @@
-import type { Mail } from "../lib/mailer.js";
+import type { Mail } from "@/lib/mailer.js";
 
-const escape = (value: string) =>
-  value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const escape = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 function layout(title: string, body: string) {
   return `<!doctype html><html lang="th"><body style="margin:0;background:#f4f6fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a">
@@ -28,7 +27,12 @@ export function otpEmail(to: string, firstName: string, code: string, minutes: n
   };
 }
 
-export function resetPasswordEmail(to: string, firstName: string, link: string, minutes: number): Mail {
+export function resetPasswordEmail(
+  to: string,
+  firstName: string,
+  link: string,
+  minutes: number,
+): Mail {
   const name = escape(firstName);
   return {
     to,

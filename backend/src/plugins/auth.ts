@@ -2,9 +2,9 @@ import cookie from "@fastify/cookie";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import fp from "fastify-plugin";
-import { env } from "../config/env.js";
-import { SESSION_COOKIE } from "../controllers/auth.controller.js";
-import { AppError } from "../utils/errors.js";
+import { env } from "@/config/env.js";
+import { SESSION_COOKIE } from "@/controllers/auth.controller.js";
+import { AppError } from "@/utils/errors.js";
 
 /** cookie + JWT session และ rate limit (เปิดเฉพาะ route ที่ตั้ง config.rateLimit) */
 export const authPlugin = fp(async (app) => {

@@ -1,23 +1,15 @@
 import type { FastifyRequest } from "fastify";
-import { createCheckoutBodySchema } from "../schemas/payment.schema.js";
-import { paymentService } from "../services/payment.service.js";
-import { SocketEvent } from "../sockets/events.js";
+import { billingService } from "@/services/billing.service.js";
 
+/** Stripe ใช้เฉพาะค่าแพ็กเกจของเจ้าของร้าน (ลูกค้าจ่ายค่าอาหารที่หน้าคิดเงิน ไม่ผ่าน Stripe) */
 export const paymentController = {
-  createCheckout(request: FastifyRequest) {
-    const { orderId } = createCheckoutBodySchema.parse(request.body);
-    return paymentService.createCheckoutSession(orderId);
-  },
-
   async webhook(request: FastifyRequest) {
     const signature = request.headers["stripe-signature"];
-    const event = paymentService.constructEvent(
+    const event = billingService.constructEvent(
       request.body as Buffer,
       Array.isArray(signature) ? signature[0] : signature,
     );
-
-    const order = await paymentService.handleEvent(event);
-    if (order) request.server.io.emit(SocketEvent.OrderUpdated, order);
+    await billingService.handleEvent(event);
     return { received: true };
   },
 };

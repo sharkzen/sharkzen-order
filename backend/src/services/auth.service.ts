@@ -1,5 +1,5 @@
 import type { AuthCodeType, BillingCycle, User } from "@prisma/client";
-import { env } from "../config/env.js";
+import { env } from "@/config/env.js";
 import {
   generateOtp,
   generateToken,
@@ -7,12 +7,13 @@ import {
   hashPassword,
   safeEqualHex,
   verifyPassword,
-} from "../lib/crypto.js";
-import { sendMail } from "../lib/mailer.js";
-import { prisma } from "../lib/prisma.js";
-import type { LoginBody, RegisterBody } from "../schemas/auth.schema.js";
-import { otpEmail, resetPasswordEmail } from "../utils/email-templates.js";
-import { AppError } from "../utils/errors.js";
+} from "@/lib/crypto.js";
+import { billingService } from "@/services/billing.service.js";
+import { sendMail } from "@/lib/mailer.js";
+import { prisma } from "@/lib/prisma.js";
+import type { LoginBody, RegisterBody } from "@/schemas/auth.schema.js";
+import { otpEmail, resetPasswordEmail } from "@/utils/email-templates.js";
+import { AppError } from "@/utils/errors.js";
 
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
@@ -54,7 +55,12 @@ async function issueCode(userId: string, type: AuthCodeType, code: string, ttlMi
       data: { consumedAt: new Date() },
     }),
     prisma.authCode.create({
-      data: { userId, type, codeHash: hashCode(code), expiresAt: minutesFromNow(ttlMinutes) },
+      data: {
+        userId,
+        type,
+        codeHash: hashCode(code),
+        expiresAt: minutesFromNow(ttlMinutes),
+      },
     }),
   ]);
 }
@@ -71,7 +77,9 @@ async function sendOtp(user: User) {
 
 export const authService = {
   async register(body: RegisterBody) {
-    const existing = await prisma.user.findUnique({ where: { email: body.email } });
+    const existing = await prisma.user.findUnique({
+      where: { email: body.email },
+    });
     if (existing?.emailVerifiedAt) {
       throw new AppError(409, "อีเมลนี้ถูกใช้งานแล้ว ลองเข้าสู่ระบบแทน", "EMAIL_TAKEN");
     }
@@ -88,7 +96,14 @@ export const authService = {
     // สมัครซ้ำด้วยอีเมลที่ยังไม่ยืนยัน = อัปเดตข้อมูลแล้วส่งรหัสใหม่
     const user = existing
       ? await prisma.user.update({ where: { id: existing.id }, data })
-      : await prisma.user.create({ data: { email: body.email, ...data } });
+      : await prisma.user.create({
+          data: {
+            email: body.email,
+            ...data,
+            // ทุกบัญชีมีร้านของตัวเองตั้งแต่สมัคร (เปลี่ยนชื่อได้ภายหลัง)
+            shop: { create: { name: `ร้านของ ${body.firstName}` } },
+          },
+        });
 
     try {
       await sendOtp(user);
@@ -130,22 +145,37 @@ export const authService = {
       const left = OTP_MAX_ATTEMPTS - attempts;
       throw new AppError(
         400,
-        left > 0 ? `รหัสไม่ถูกต้อง เหลือโอกาสอีก ${left} ครั้ง` : "กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่",
+        left > 0
+          ? `รหัสไม่ถูกต้อง เหลือโอกาสอีก ${left} ครั้ง`
+          : "กรอกรหัสผิดหลายครั้งเกินไป กรุณาขอรหัสใหม่",
         left > 0 ? "OTP_INVALID" : "OTP_LOCKED",
       );
     }
 
     const [, verified] = await prisma.$transaction([
-      prisma.authCode.update({ where: { id: record.id }, data: { consumedAt: new Date() } }),
-      prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } }),
+      prisma.authCode.update({
+        where: { id: record.id },
+        data: { consumedAt: new Date() },
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { emailVerifiedAt: new Date() },
+      }),
     ]);
     return verified;
   },
 
   async login({ email, password }: LoginBody) {
     const user = await prisma.user.findUnique({ where: { email } });
-    const ok = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
+    const { ok, needsRehash } = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok) throw new AppError(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง", "INVALID_CREDENTIALS");
+
+    if (needsRehash) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash: await hashPassword(password) },
+      });
+    }
 
     if (!user.emailVerifiedAt) {
       await sendOtp(user).catch(() => undefined);
@@ -155,6 +185,10 @@ export const authService = {
   },
 
   async selectPlan(userId: string, plan: string, billing: "monthly" | "yearly") {
+    // เริ่มช่วงทดลองฟรีของแพ็กเกจที่เลือก (ถ้าสมัครแบบชำระเงินอยู่แล้วจะไม่แตะต้อง)
+    if (plan === "starter" || plan === "growth" || plan === "multi") {
+      await billingService.selectTrialPlan(userId, plan, billing);
+    }
     return prisma.user.update({
       where: { id: userId },
       data: { plan, billingCycle: toBillingCycle(billing) },
@@ -181,10 +215,18 @@ export const authService = {
 
   async resetPassword(token: string, password: string) {
     const record = await prisma.authCode.findFirst({
-      where: { type: "PASSWORD_RESET", codeHash: hashCode(token), consumedAt: null },
+      where: {
+        type: "PASSWORD_RESET",
+        codeHash: hashCode(token),
+        consumedAt: null,
+      },
     });
     if (!record || record.expiresAt < new Date()) {
-      throw new AppError(400, "ลิงก์หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอลิงก์ใหม่", "RESET_TOKEN_INVALID");
+      throw new AppError(
+        400,
+        "ลิงก์หมดอายุหรือถูกใช้ไปแล้ว กรุณาขอลิงก์ใหม่",
+        "RESET_TOKEN_INVALID",
+      );
     }
 
     await prisma.$transaction([
@@ -193,7 +235,11 @@ export const authService = {
         data: { passwordHash: await hashPassword(password) },
       }),
       prisma.authCode.updateMany({
-        where: { userId: record.userId, type: "PASSWORD_RESET", consumedAt: null },
+        where: {
+          userId: record.userId,
+          type: "PASSWORD_RESET",
+          consumedAt: null,
+        },
         data: { consumedAt: new Date() },
       }),
     ]);

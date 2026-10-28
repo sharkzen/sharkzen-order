@@ -14,6 +14,16 @@ const schema = z.object({
   MAIL_FROM: z.string().default("SHARKZEN ORDER <no-reply@sharkzen.local>"),
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  // Cloudflare R2 (เก็บรูปเมนู) ไม่ตั้ง = อัปโหลดรูปไม่ได้ แต่ระบบส่วนอื่นยังทำงานปกติ
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  /** URL สาธารณะของ bucket เช่น https://img.example.com (ไม่มี / ท้าย) */
+  R2_PUBLIC_URL: z
+    .string()
+    .optional()
+    .transform((value) => value?.replace(/\/+$/, "")),
   CORS_ORIGIN: z
     .string()
     .default("http://localhost:3000")

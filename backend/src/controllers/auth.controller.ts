@@ -1,6 +1,6 @@
 import type { User } from "@prisma/client";
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { env } from "../config/env.js";
+import { env } from "@/config/env.js";
 import {
   emailOnlyBodySchema,
   loginBodySchema,
@@ -8,8 +8,8 @@ import {
   resetPasswordBodySchema,
   selectPlanBodySchema,
   verifyEmailBodySchema,
-} from "../schemas/auth.schema.js";
-import { authService, toSessionUser } from "../services/auth.service.js";
+} from "@/schemas/auth.schema.js";
+import { authService, toSessionUser } from "@/services/auth.service.js";
 
 export const SESSION_COOKIE = "sz_session";
 const DAY = 24 * 60 * 60;

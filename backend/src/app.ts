@@ -25,14 +25,20 @@ export async function buildApp() {
     // error ของ Fastify/plugin ที่เป็นฝั่ง client เช่น rate limit (429), body ไม่ถูกต้อง
     const status = (error as { statusCode?: number }).statusCode;
     if (status && status >= 400 && status < 500) {
-      const message = status === 429 ? "ทำรายการถี่เกินไป กรุณารอสักครู่แล้วลองใหม่" : (error as Error).message;
+      const message =
+        status === 429 ? "ทำรายการถี่เกินไป กรุณารอสักครู่แล้วลองใหม่" : (error as Error).message;
       return reply.code(status).send({ message });
     }
     app.log.error(error);
     return reply.code(500).send({ message: "Internal server error" });
   });
 
-  await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
+  // ต้องระบุ methods เอง: ค่าเริ่มต้นของ @fastify/cors มีแค่ GET/HEAD/POST ทำให้ PUT/PATCH/DELETE ถูกบล็อกตอน preflight
+  await app.register(cors, {
+    origin: env.CORS_ORIGIN,
+    credentials: true,
+    methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  });
   await app.register(authPlugin);
   await app.register(socketPlugin);
   await app.register(routes, { prefix: "/api" });

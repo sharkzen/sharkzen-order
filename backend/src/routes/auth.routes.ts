@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { authController } from "../controllers/auth.controller.js";
+import { authController } from "@/controllers/auth.controller.js";
 
 /** จำกัดจำนวนครั้งต่อ IP เพื่อกันเดารหัส/ยิงอีเมลรัว */
 const limit = (max: number) => ({ config: { rateLimit: { max, timeWindow: "1 minute" } } });
