@@ -27,8 +27,8 @@ export interface MenuOptionGroup {
   options: MenuOption[];
 }
 
-/** ขนาดรูปเมนูที่แนะนำ (สัดส่วน 4:3 ตรงกับการ์ดเมนูของลูกค้า) */
-export const MENU_IMAGE_SIZE = { width: 800, height: 600 } as const;
+/** ขนาดรูปเมนูที่แนะนำ (สัดส่วน 1:1 แสดงบนหน้าลูกค้าเต็มภาพ ไม่ตัดขอบ) */
+export const MENU_IMAGE_SIZE = { width: 800, height: 800 } as const;
 
 export interface MenuItem {
   id: string;
@@ -40,6 +40,8 @@ export interface MenuItem {
   image: string;
   /** true = พร้อมขาย, false = หมดชั่วคราว */
   available: boolean;
+  /** เมนูแนะนำ (ขายดี) แสดงบนสุดของหน้าลูกค้า ร้านละไม่เกิน MAX_FEATURED */
+  featured: boolean;
   /** null = ไม่มีหมวดหมู่ */
   categoryId: string | null;
   sortOrder: number;
@@ -51,6 +53,9 @@ export interface MenuData {
   categories: Category[];
   items: MenuItem[];
 }
+
+/** เมนูแนะนำได้สูงสุดกี่เมนู (backend ตรวจซ้ำอีกชั้น) */
+export const MAX_FEATURED = 4;
 
 export type SaleFilter = "all" | "available" | "soldout";
 
@@ -64,6 +69,7 @@ export interface MenuItemInput {
   price: number;
   image: string;
   available: boolean;
+  featured?: boolean;
   categoryId: string | null;
   optionGroups: MenuOptionGroup[];
 }

@@ -26,6 +26,8 @@ export interface CustomerMenuItem {
   price: number;
   image: string;
   available: boolean;
+  /** เมนูแนะนำของร้าน (ไม่เกิน 4 เมนู) */
+  featured: boolean;
   categoryId: string | null;
   optionGroups: CustomerOptionGroup[];
 }

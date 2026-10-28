@@ -77,6 +77,9 @@ export const parseBilling = (value: string | undefined): BillingCycle =>
 
 export const formatBaht = (amount: number) => amount.toLocaleString("en-US");
 
+/** รูปแบบป้ายราคาไทย เช่น 333.- */
+export const formatPrice = (amount: number) => `${formatBaht(amount)}.-`;
+
 /** ราคาเฉลี่ยต่อเดือนเมื่อจ่ายรายปี */
 export const yearlyPerMonth = (plan: PricingPlan) => Math.round(plan.yearly / 12);
 

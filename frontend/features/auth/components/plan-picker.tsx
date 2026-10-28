@@ -7,7 +7,7 @@ import {
   PRICING_PLANS,
   TRIAL_DAYS,
   YEARLY_FREE_MONTHS,
-  formatBaht,
+  formatPrice,
   yearlyPerMonth,
   yearlySavings,
   type BillingCycle,
@@ -129,22 +129,22 @@ export function PlanPicker({
               <div className="flex min-h-[104px] flex-col gap-1" aria-live="polite">
                 <p className="flex items-baseline gap-2">
                   <span className="font-display text-foreground text-[44px] font-semibold">
-                    {formatBaht(yearly ? yearlyPerMonth(item) : item.monthly)}
+                    {formatPrice(yearly ? yearlyPerMonth(item) : item.monthly)}
                   </span>
-                  <span className="text-muted-foreground text-sm">บาทต่อเดือน</span>
+                  <span className="text-muted-foreground text-sm">ต่อเดือน</span>
                   {yearly && (
                     <span className="text-muted-foreground text-sm line-through">
-                      {formatBaht(item.monthly)}
+                      {formatPrice(item.monthly)}
                     </span>
                   )}
                 </p>
                 {yearly ? (
                   <>
                     <p className="text-foreground text-[13px] font-medium">
-                      ชำระปีละ {formatBaht(item.yearly)} บาท
+                      ชำระปีละ {formatPrice(item.yearly)}
                     </p>
                     <p className="text-success-strong text-[13px] font-semibold">
-                      ประหยัด {formatBaht(yearlySavings(item))} บาทต่อปี
+                      ประหยัด {formatPrice(yearlySavings(item))} ต่อปี
                     </p>
                   </>
                 ) : (

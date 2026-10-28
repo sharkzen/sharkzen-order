@@ -1,3 +1,6 @@
+/** ป้ายราคาแบบไทย เช่น 65.- */
+export const price = (value: number) => `${value.toLocaleString("th-TH")}.-`;
+
 export const baht = (value: number) => `${value.toLocaleString("th-TH")} บาท`;
 
 export const STATUS_LABEL = {

@@ -67,6 +67,7 @@ export function ImagePicker({ current, pending, onPendingChange, onRemove, error
   const cropper = (
     <ImageCropperDialog
       file={file}
+      aspects={[{ value: 1, label: "สี่เหลี่ยมจัตุรัส 1:1" }]}
       onClose={() => setFile(null)}
       onConfirm={(blob) => {
         onPendingChange({ blob, preview: URL.createObjectURL(blob) });

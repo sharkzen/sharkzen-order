@@ -11,7 +11,13 @@ import { useActiveSection } from "@/hooks/use-active-section";
 import { cn } from "@/lib/cn";
 
 /** เมนูสำหรับจอเล็ก (ต่ำกว่า lg) เปิด/ปิดจากปุ่มแฮมเบอร์เกอร์ใน header */
-export function MobileNav({ items }: { items: NavItem[] }) {
+export function MobileNav({
+  items,
+  loggedIn = false,
+}: {
+  items: NavItem[];
+  loggedIn?: boolean;
+}) {
   const active = useActiveSection(items.map((item) => item.id));
   const [open, setOpen] = useState(false);
   const close = () => setOpen(false);
@@ -60,23 +66,35 @@ export function MobileNav({ items }: { items: NavItem[] }) {
                 {item.label}
               </Link>
             ))}
-            <Link
-              href={ROUTES.login}
-              onClick={close}
-              className={buttonVariants({
-                variant: "outline",
-                className: "mt-2 sm:hidden",
-              })}
-            >
-              เข้าสู่ระบบ
-            </Link>
-            <Link
-              href={ROUTES.register}
-              onClick={close}
-              className={buttonVariants({ className: "sm:hidden" })}
-            >
-              สมัครสมาชิก
-            </Link>
+            {loggedIn ? (
+              <Link
+                href={ROUTES.dashboard}
+                onClick={close}
+                className={buttonVariants({ className: "mt-2 sm:hidden" })}
+              >
+                ไปที่แดชบอร์ด
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href={ROUTES.login}
+                  onClick={close}
+                  className={buttonVariants({
+                    variant: "outline",
+                    className: "mt-2 sm:hidden",
+                  })}
+                >
+                  เข้าสู่ระบบ
+                </Link>
+                <Link
+                  href={ROUTES.register}
+                  onClick={close}
+                  className={buttonVariants({ className: "sm:hidden" })}
+                >
+                  สมัครสมาชิก
+                </Link>
+              </>
+            )}
           </m.nav>
         )}
       </AnimatePresence>

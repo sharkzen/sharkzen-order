@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquarePlus, Send, ShoppingBasket } from "lucide-react";
+import {
+  PiArrowRightBold,
+  PiBasketFill,
+  PiCheckCircleFill,
+  PiCrownSimpleFill,
+  PiNotePencilBold,
+  PiShoppingCartSimpleFill,
+  PiTrashBold,
+} from "react-icons/pi";
 import { Button, Textarea } from "@/components/ui";
 import type { ResolvedLine } from "@/features/customer-order/lib/cart";
 import { baht } from "@/features/customer-order/lib/format";
@@ -24,7 +32,7 @@ export function CartEmpty() {
   return (
     <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center text-sm">
       <span className="bg-primary-soft text-primary flex size-12 items-center justify-center rounded-full">
-        <ShoppingBasket className="size-6" aria-hidden />
+        <PiBasketFill className="size-6" aria-hidden />
       </span>
       ยังไม่ได้เลือกเมนู
       <span className="text-xs">แตะที่เมนูที่ชอบเพื่อเพิ่มลงตะกร้า</span>
@@ -32,7 +40,7 @@ export function CartEmpty() {
   );
 }
 
-/** รายการในตะกร้า: ปรับจำนวนและเขียนหมายเหตุให้แต่ละเมนูได้ (เช่น ไม่ใส่ผัก ไม่เอาน้ำแข็ง) */
+/** รายการในตะกร้า: รูป ชื่อ ตัวเลือก ราคา พร้อมปรับจำนวน ลบ และเขียนหมายเหตุให้แต่ละเมนู (เช่น ไม่ใส่ผัก) */
 export function CartLines({
   lines,
   note,
@@ -44,35 +52,49 @@ export function CartLines({
   const [opened, setOpened] = useState<Set<string>>(new Set());
 
   return (
-    <div className="flex flex-col gap-5">
-      <ul className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <ul className="border-border bg-surface divide-border divide-y overflow-hidden rounded-2xl border">
         {lines.map(({ key, item, optionNames, unitPrice, quantity, note: lineNote }) => {
           const noteOpen = opened.has(key) || lineNote !== "";
           return (
-            <li key={key} className="border-border bg-surface flex flex-col gap-3 rounded-xl border p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-foreground text-[15px] leading-snug font-semibold">{item.name}</p>
-                  {optionNames.length > 0 && (
-                    <p className="text-muted-foreground mt-0.5 text-[13px] leading-relaxed">{optionNames.join(" • ")}</p>
+            <li key={key} className="flex flex-col gap-2 p-3">
+              <div className="flex items-center gap-3">
+                <div className="bg-muted relative size-16 shrink-0 overflow-hidden rounded-xl">
+                  {item.image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={item.image} alt="" className="size-full object-contain" />
+                  )}
+                  {item.featured && (
+                    <span className="bg-primary text-primary-foreground absolute top-1 left-1 flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                      <PiCrownSimpleFill className="size-2.5" aria-hidden />
+                      แนะนำ
+                    </span>
                   )}
                 </div>
-                <p className="text-foreground shrink-0 text-[15px] font-semibold tabular-nums">
-                  {baht(unitPrice * quantity)}
-                </p>
-              </div>
 
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-muted-foreground text-[13px] tabular-nums">
-                  {baht(unitPrice)}
-                  {quantity > 1 && ` × ${quantity}`}
-                </p>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <p className="text-foreground text-sm leading-snug font-bold">{item.name}</p>
+                  {optionNames.length > 0 && (
+                    <p className="text-muted-foreground text-[11px] leading-snug">{optionNames.join(" • ")}</p>
+                  )}
+                  <p className="text-primary-strong text-sm font-bold tabular-nums">{baht(unitPrice * quantity)}</p>
+                </div>
+
                 <QuantityStepper
-                  variant="compact"
+                  variant="pill"
                   quantity={quantity}
                   name={item.name}
                   onChange={(q) => onChange(key, q)}
+                  className="shrink-0"
                 />
+                <button
+                  type="button"
+                  aria-label={`เอา ${item.name} ออกจากตะกร้า`}
+                  onClick={() => onChange(key, 0)}
+                  className="text-danger hover:bg-danger-soft focus-visible:ring-danger/50 -mr-1 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <PiTrashBold className="size-[18px]" aria-hidden />
+                </button>
               </div>
 
               {noteOpen ? (
@@ -80,7 +102,7 @@ export function CartLines({
                   rows={2}
                   maxLength={200}
                   aria-label={`หมายเหตุของ ${item.name}`}
-                  placeholder="หมายเหตุ"
+                  placeholder="เช่น ไม่ใส่ผัก ไม่เผ็ด"
                   value={lineNote}
                   autoFocus={lineNote === ""}
                   onChange={(e) => onLineNote(key, e.target.value)}
@@ -89,9 +111,9 @@ export function CartLines({
                 <button
                   type="button"
                   onClick={() => setOpened((current) => new Set(current).add(key))}
-                  className="text-primary-strong hover:bg-primary-soft focus-visible:ring-primary/50 -mx-1 flex h-10 w-fit cursor-pointer items-center gap-2 rounded-lg px-2 text-[13px] font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                  className="text-muted-foreground hover:text-primary-strong focus-visible:ring-primary/50 flex w-fit cursor-pointer items-center gap-1.5 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
-                  <MessageSquarePlus className="size-4" aria-hidden />
+                  <PiNotePencilBold className="size-3.5" aria-hidden />
                   เพิ่มหมายเหตุ
                 </button>
               )}
@@ -102,13 +124,13 @@ export function CartLines({
 
       <label className="flex flex-col gap-1.5">
         <span className="text-foreground text-sm font-semibold">
-          หมายเหตุถึงครัว <span className="text-muted-foreground font-normal">(ทั้งออเดอร์ ไม่บังคับ)</span>
+          ฝากบอกครัว <span className="text-muted-foreground font-normal">(ไม่บังคับ)</span>
         </span>
         <Textarea
           rows={2}
           maxLength={200}
           value={note}
-          placeholder="หมายเหตุ"
+          placeholder="เช่น ขอช้อนเพิ่ม"
           onChange={(e) => onNote(e.target.value)}
         />
       </label>
@@ -125,13 +147,24 @@ export function CartFooter({
 }: Pick<CartPanelProps, "total" | "submitting" | "onSubmit"> & { count: number }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between">
-        <span className="text-muted-foreground text-sm">ยอดรวม {count} รายการ</span>
-        <span className="font-display text-foreground text-2xl tabular-nums">{baht(total)}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-foreground text-sm font-bold">
+          รวมทั้งหมด <span className="text-muted-foreground font-normal">({count} รายการ)</span>
+        </span>
+        <span className="font-display text-foreground text-2xl font-bold tabular-nums">{baht(total)}</span>
       </div>
-      <Button size="lg" loading={submitting} onClick={onSubmit}>
-        {!submitting && <Send className="size-4" aria-hidden />}
-        ส่งออเดอร์เข้าครัว
+      <p className="text-muted-foreground flex items-center gap-2 text-xs">
+        <PiCheckCircleFill className="text-primary size-4 shrink-0" aria-hidden />
+        สั่งอาหารกับเรา อร่อย สะอาด มั่นใจได้
+      </p>
+      <Button size="lg" loading={submitting} onClick={onSubmit} className="relative h-14 rounded-full text-lg">
+        {!submitting && <PiShoppingCartSimpleFill className="absolute left-5 size-6" aria-hidden />}
+        สั่งอาหารเลย
+        {!submitting && (
+          <span className="bg-surface text-primary-strong absolute right-2 flex size-10 items-center justify-center rounded-full">
+            <PiArrowRightBold className="size-5" aria-hidden />
+          </span>
+        )}
       </Button>
     </div>
   );

@@ -1,21 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { m } from "framer-motion";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
-  Armchair,
-  BellRing,
-  CircleCheck,
-  CircleOff,
-  Info,
-  ScanLine,
-  X,
-  Search,
-  ShoppingBasket,
-  TriangleAlert,
-} from "lucide-react";
-import { Badge, Button, Spinner } from "@/components/ui";
+  PiBasketFill,
+  PiMagnifyingGlassBold,
+  PiQrCodeBold,
+  PiWarningFill,
+  PiXBold,
+} from "react-icons/pi";
+import { Button, Spinner } from "@/components/ui";
 import { siteConfig } from "@/config/site";
 import { cn } from "@/lib/cn";
 import { toApiError } from "@/lib/http/api-error";
@@ -26,9 +22,14 @@ import {
   type CustomerMenuItem,
   type CustomerOrder as Order,
 } from "@/features/customer-order/lib/customer-api";
-import { resolveLines, setLineQuantity, upsertLine, type CartLine } from "@/features/customer-order/lib/cart";
-import { baht } from "@/features/customer-order/lib/format";
+import {
+  resolveLines,
+  setLineQuantity,
+  upsertLine,
+  type CartLine,
+} from "@/features/customer-order/lib/cart";
 import { CartPanel } from "./cart-panel";
+import { ConfirmOrderDialog } from "./confirm-order-dialog";
 import { OptionSheet } from "./option-sheet";
 import { CartPage } from "./cart-page";
 import { ClosedDialog } from "./closed-dialog";
@@ -56,11 +57,26 @@ export function CustomerOrder({ token }: { token: string }) {
   const [calling, setCalling] = useState(false);
   const [closedOpen, setClosedOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [chipsAtEnd, setChipsAtEnd] = useState(false);
   const wasOrderable = useRef<boolean | null>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
+  /** ตำแหน่งและความกว้างของเส้นใต้แท็บหมวดที่เลือก (วัดจากปุ่มจริง) */
+  const [indicator, setIndicator] = useState<{ x: number; width: number } | null>(null);
   const cartKey = `cart:${token.slice(0, 24)}`;
+
+  const categoryCount = menu?.categories.length ?? 0;
+  useLayoutEffect(() => {
+    const measure = () => {
+      const tab = tabsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+      setIndicator(tab ? { x: tab.offsetLeft, width: tab.offsetWidth } : null);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [category, categoryCount]);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
@@ -70,14 +86,17 @@ export function CustomerOrder({ token }: { token: string }) {
           customerApi.orders(token, signal),
         ]);
         // ถ้าสั่งได้อยู่แล้วกลายเป็นสั่งไม่ได้ (พนักงานปิดโต๊ะ/ร้านปิดรับ) แจ้งทันที
-        if (wasOrderable.current !== false && !nextMenu.canOrder) setClosedOpen(true);
+        if (wasOrderable.current !== false && !nextMenu.canOrder)
+          setClosedOpen(true);
         wasOrderable.current = nextMenu.canOrder;
         setMenu(nextMenu);
         setOrders(nextOrders);
         setError(null);
       } catch (e) {
         if (signal?.aborted) return;
-        setError((current) => (toApiError(e).status === 404 ? "invalid" : (current ?? "failed")));
+        setError((current) =>
+          toApiError(e).status === 404 ? "invalid" : (current ?? "failed"),
+        );
       }
     },
     [token],
@@ -87,7 +106,8 @@ export function CustomerOrder({ token }: { token: string }) {
     const controller = new AbortController();
     void refresh(controller.signal);
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh(controller.signal);
+      if (document.visibilityState === "visible")
+        void refresh(controller.signal);
     }, POLL_MS);
     return () => {
       controller.abort();
@@ -98,7 +118,9 @@ export function CustomerOrder({ token }: { token: string }) {
   // ตะกร้าไม่หายเมื่อรีเฟรชหน้า (เก็บแยกตามโต๊ะ)
   useEffect(() => {
     try {
-      const saved: unknown = JSON.parse(sessionStorage.getItem(cartKey) ?? "[]");
+      const saved: unknown = JSON.parse(
+        sessionStorage.getItem(cartKey) ?? "[]",
+      );
       if (Array.isArray(saved)) setCart(saved as CartLine[]);
     } catch {}
   }, [cartKey]);
@@ -113,16 +135,31 @@ export function CustomerOrder({ token }: { token: string }) {
     return (menu?.items ?? []).filter(
       (item) =>
         (!category || item.categoryId === category) &&
-        (!text || `${item.name} ${item.description}`.toLowerCase().includes(text)),
+        (!text ||
+          `${item.name} ${item.description}`.toLowerCase().includes(text)),
     );
   }, [menu, query, category]);
 
-  const lines = useMemo(() => resolveLines(menu?.items ?? [], cart), [menu, cart]);
+  const lines = useMemo(
+    () => resolveLines(menu?.items ?? [], cart),
+    [menu, cart],
+  );
   const count = lines.reduce((sum, line) => sum + line.quantity, 0);
-  const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+  const total = lines.reduce(
+    (sum, line) => sum + line.unitPrice * line.quantity,
+    0,
+  );
+  // ลดจนตะกร้าว่างในหน้ายืนยัน → ปิดหน้ายืนยันเอง
+  useEffect(() => {
+    if (confirmOpen && cart.length === 0) setConfirmOpen(false);
+  }, [confirmOpen, cart.length]);
   const inCart = (itemId: string) =>
-    lines.filter((line) => line.item.id === itemId).reduce((sum, line) => sum + line.quantity, 0);
-  const inProgress = orders.filter((o) => o.status !== "SERVED" && o.status !== "CANCELLED").length;
+    lines
+      .filter((line) => line.item.id === itemId)
+      .reduce((sum, line) => sum + line.quantity, 0);
+  const inProgress = orders.filter(
+    (o) => o.status !== "SERVED" && o.status !== "CANCELLED",
+  ).length;
 
   /** เมนูที่ไม่มีตัวเลือก: ตั้งจำนวนตรงๆ */
   function setSimple(itemId: string, quantity: number) {
@@ -134,11 +171,20 @@ export function CustomerOrder({ token }: { token: string }) {
   }
 
   function setLineNote(key: string, note: string) {
-    setCart((current) => current.map((line) => (line.key === key ? { ...line, note } : line)));
+    setCart((current) =>
+      current.map((line) => (line.key === key ? { ...line, note } : line)),
+    );
   }
 
-  function addWithOptions(item: CustomerMenuItem, optionIds: string[], quantity: number, note: string) {
-    setCart((current) => upsertLine(current, item.id, optionIds, quantity, false, note));
+  function addWithOptions(
+    item: CustomerMenuItem,
+    optionIds: string[],
+    quantity: number,
+    note: string,
+  ) {
+    setCart((current) =>
+      upsertLine(current, item.id, optionIds, quantity, false, note),
+    );
     setOptionItem(null);
   }
 
@@ -181,31 +227,47 @@ export function CustomerOrder({ token }: { token: string }) {
         await refresh();
       } else {
         notify.error(e);
-        if (code === "MENU_UNAVAILABLE" || code === "MENU_NOT_FOUND") await refresh();
+        if (code === "MENU_UNAVAILABLE" || code === "MENU_NOT_FOUND")
+          await refresh();
       }
     } finally {
       setSubmitting(false);
+      setConfirmOpen(false);
     }
   }
 
   if (error && !menu) {
     return (
       <Notice
-        icon={error === "invalid" ? <ScanLine className="size-7" /> : <TriangleAlert className="size-7" />}
+        icon={
+          error === "invalid" ? (
+            <PiQrCodeBold className="size-7" />
+          ) : (
+            <PiWarningFill className="size-7" />
+          )
+        }
         title={error === "invalid" ? "QR นี้ใช้ไม่ได้" : "เปิดเมนูไม่สำเร็จ"}
         body={
           error === "invalid"
             ? "ไม่พบโต๊ะจากลิงก์นี้ ลองสแกน QR ที่โต๊ะใหม่อีกครั้ง หรือเรียกพนักงาน"
             : "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"
         }
-        action={error === "failed" ? <Button onClick={() => void refresh()}>ลองใหม่</Button> : undefined}
+        action={
+          error === "failed" ? (
+            <Button onClick={() => void refresh()}>ลองใหม่</Button>
+          ) : undefined
+        }
       />
     );
   }
 
   if (!menu) {
     return (
-      <div role="status" aria-label="กำลังโหลดเมนู" className="flex min-h-dvh items-center justify-center">
+      <div
+        role="status"
+        aria-label="กำลังโหลดเมนู"
+        className="flex min-h-dvh items-center justify-center"
+      >
         <Spinner className="text-primary size-8" />
       </div>
     );
@@ -213,34 +275,85 @@ export function CustomerOrder({ token }: { token: string }) {
 
   const status =
     menu.blocked === "SHOP_CLOSED"
-      ? { tone: "danger" as const, label: "ปิดรับออเดอร์", icon: CircleOff }
+      ? { tone: "danger" as const, label: "ปิดรับออเดอร์" }
       : menu.blocked === "TABLE_CLOSED"
-        ? { tone: "warning" as const, label: "โต๊ะยังไม่เปิด", icon: TriangleAlert }
-        : { tone: "success" as const, label: "เปิดอยู่", icon: CircleCheck };
-  const StatusIcon = status.icon;
+        ? {
+            tone: "warning" as const,
+            label: "โต๊ะยังไม่เปิด",
+          }
+        : { tone: "success" as const, label: "เปิดอยู่" };
   const available = menu.items.filter((item) => item.available).length;
-  const info = [menu.shop.branch, menu.table.zone, menu.shop.hours && `วันนี้ ${menu.shop.hours}`]
+  const info = [
+    menu.shop.branch,
+    menu.table.zone,
+    menu.shop.hours && `วันนี้ ${menu.shop.hours}`,
+  ]
     .filter(Boolean)
     .join(" • ");
   const cover = menu.shop.coverImage || DEFAULT_COVER;
-  const cartProps = { lines, total, note, submitting, onNote: setNote, onChange: setLine, onLineNote: setLineNote, onSubmit: submit };
+  /** เมนูแนะนำของร้านแสดงแยกด้านบน เฉพาะตอนดูทุกหมวดและไม่ได้ค้นหา */
+  const featuredItems =
+    !category && !query.trim()
+      ? visibleItems.filter((item) => item.featured)
+      : [];
+  const renderGrid = (items: CustomerMenuItem[]) => (
+    <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
+      {items.map((item) => (
+        <MenuCard
+          key={item.id}
+          item={item}
+          categoryName={
+            menu.categories.find((c) => c.id === item.categoryId)?.name
+          }
+          quantity={inCart(item.id)}
+          canOrder={menu.canOrder}
+          onChange={(q) => setSimple(item.id, q)}
+          onChoose={() => setOptionItem(item)}
+          onBlocked={() => setClosedOpen(true)}
+        />
+      ))}
+    </ul>
+  );
+  const cartProps = {
+    lines,
+    total,
+    note,
+    submitting,
+    onNote: setNote,
+    onChange: setLine,
+    onLineNote: setLineNote,
+    // กดสั่งอาหารเลย → ถามยืนยันก่อน ค่อยส่งเข้าครัวจริงเมื่อกดยืนยัน
+    onSubmit: () => setConfirmOpen(true),
+  };
 
   return (
-    <div className="min-h-dvh pb-[calc(4rem+env(safe-area-inset-bottom))]">
-      <header className="bg-surface border-border border-b">
-        <div className="mx-auto flex h-16 max-w-6xl items-center px-4 md:px-6">
-          <div className="flex items-center gap-2.5">
-            <Image src="/images/logo.svg" alt="" width={32} height={32} unoptimized className="shrink-0" />
-            <span className="font-display text-foreground text-[15px] font-semibold tracking-wide">
-              {siteConfig.name}
-            </span>
+    <div className="min-h-dvh pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+      <header className="bg-surface">
+        <div className="mx-auto flex h-[72px] max-w-6xl items-center px-4 md:px-6">
+          <div className="flex items-center gap-3">
+            <Image
+              src="/images/logo.svg"
+              alt=""
+              width={44}
+              height={44}
+              unoptimized
+              className="shrink-0"
+            />
+            <div className="flex flex-col">
+              <span className="font-display text-foreground text-lg leading-tight font-bold tracking-wide">
+                {siteConfig.name}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                สั่งปุ๊บ เด้งปั๊บ ถึงครัวทันที
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl md:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
         <div className="min-w-0">
-          <div className="relative aspect-[5/2] w-full overflow-hidden md:mt-6 md:rounded-2xl">
+          <div className="relative aspect-[2/1] w-full overflow-hidden sm:aspect-[5/2] md:mt-2 md:rounded-2xl">
             <Image
               src={cover}
               alt=""
@@ -250,47 +363,76 @@ export function CustomerOrder({ token }: { token: string }) {
               sizes="(min-width: 1152px) 800px, 100vw"
               className="object-cover"
             />
-            <div className="from-foreground/45 pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t to-transparent" />
-            <div className="bg-surface shadow-card absolute bottom-3 left-4 flex items-center gap-2 rounded-xl px-3.5 py-2 md:bottom-4 md:left-5">
-              <Armchair className="text-primary-strong size-[18px]" aria-hidden />
-              <p className="font-display text-foreground text-lg leading-tight">{menu.table.name}</p>
-              <span className="text-muted-foreground text-xs">{menu.table.zone}</span>
+            <div className="from-foreground/75 via-foreground/40 pointer-events-none absolute inset-0 bg-gradient-to-r to-transparent" />
+            <div className="absolute inset-y-0 left-0 flex w-3/4 flex-col justify-center gap-3 px-5 text-white md:px-8">
+              <p className="font-display text-2xl leading-tight font-bold md:text-4xl">
+                อร่อยทุกเมนู
+                <br />
+                พร้อมเสิร์ฟถึงโต๊ะคุณ
+              </p>
+              <p className="text-sm">สั่งง่าย รวดเร็ว ไม่ต้องรอ</p>
             </div>
           </div>
 
-          <section className="bg-surface border-border flex flex-col gap-3 border-b p-5 md:mt-4 md:rounded-2xl md:border">
-            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <h1 className="font-display text-foreground text-[26px] leading-tight md:text-3xl">{menu.shop.name}</h1>
-              <Badge tone={status.tone} className="shrink-0">
-                <StatusIcon className="size-[13px]" aria-hidden />
+          <section className="bg-surface border-border flex flex-col gap-3 border-b px-4 py-4 md:mt-4 md:rounded-2xl md:border">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="font-display text-foreground min-w-0 text-2xl leading-tight font-bold">
+                {menu.shop.name}
+              </h1>
+              <span
+                className={cn(
+                  "mt-1.5 flex shrink-0 items-center gap-1.5 text-sm font-semibold",
+                  status.tone === "success" && "text-success-strong",
+                  status.tone === "warning" && "text-warning-strong",
+                  status.tone === "danger" && "text-danger-strong",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "size-2 rounded-full",
+                    status.tone === "success" && "bg-success",
+                    status.tone === "warning" && "bg-warning",
+                    status.tone === "danger" && "bg-danger",
+                  )}
+                />
                 {status.label}
-              </Badge>
+              </span>
             </div>
-            {info && <p className="text-muted-foreground text-sm leading-relaxed">{info}</p>}
-            {menu.canOrder ? (
-              <p className="bg-primary-soft text-primary-strong flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] leading-relaxed">
-                <Info className="size-4 shrink-0" aria-hidden />
-                เลือกเมนูที่ชอบ แล้วส่งออเดอร์จากตะกร้าได้เลย
-              </p>
-            ) : (
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {menu.table.name}
+              {info && ` • ${info}`}
+            </p>
+            <div className="border-border flex items-center justify-between gap-4 border-t pt-3">
+              {menu.canOrder ? (
+                <p className="text-muted-foreground text-[13px] leading-snug">
+                  เลือกเมนูที่ชอบ แล้วสั่งจากตะกร้าได้เลย
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setClosedOpen(true)}
+                  className="text-warning-strong cursor-pointer text-left text-[13px] leading-snug font-medium underline underline-offset-2"
+                >
+                  ตอนนี้ยังสั่งอาหารไม่ได้
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => setClosedOpen(true)}
-                className="bg-warning-soft text-warning-strong flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] leading-relaxed font-medium"
+                onClick={() => setCallOpen(true)}
+                className="text-primary-strong focus-visible:ring-primary/50 shrink-0 cursor-pointer rounded text-sm font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none"
               >
-                <TriangleAlert className="size-4 shrink-0" aria-hidden />
-                ตอนนี้ยังสั่งอาหารไม่ได้ กรุณาเรียกพนักงาน
+                เรียกพนักงาน
               </button>
-            )}
-            <Button variant="outline" onClick={() => setCallOpen(true)}>
-              <BellRing className="size-[18px]" aria-hidden />
-              เรียกพนักงาน
-            </Button>
+            </div>
           </section>
 
           <div className="bg-background/95 sticky top-0 z-10 flex flex-col gap-3 px-4 pt-4 pb-3 backdrop-blur md:px-0">
-            <div className="border-border bg-surface focus-within:border-primary focus-within:ring-primary/20 flex h-12 items-center gap-3 rounded-xl border px-4 transition-shadow focus-within:ring-4">
-              <Search className="text-muted-foreground size-[18px] shrink-0" aria-hidden />
+            <div className="border-border focus-within:border-primary flex h-12 items-center gap-3 border-b-2 px-1 transition-colors">
+              <PiMagnifyingGlassBold
+                className="text-muted-foreground size-[18px] shrink-0"
+                aria-hidden
+              />
               <input
                 type="text"
                 inputMode="search"
@@ -306,73 +448,121 @@ export function CustomerOrder({ token }: { token: string }) {
                   type="button"
                   aria-label="ล้างคำค้นหา"
                   onClick={() => setQuery("")}
-                  className="text-muted-foreground hover:bg-muted hover:text-foreground -mr-2 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
                 >
-                  <X className="size-4" aria-hidden />
+                  <PiXBold className="size-4" aria-hidden />
                 </button>
               )}
             </div>
             {menu.categories.length > 0 && (
               <div
-                role="group"
+                ref={tabsRef}
+                role="tablist"
                 aria-label="หมวดเมนู"
                 data-at-end={chipsAtEnd}
                 onScroll={(e) => {
                   const el = e.currentTarget;
-                  setChipsAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+                  setChipsAtEnd(
+                    el.scrollLeft + el.clientWidth >= el.scrollWidth - 4,
+                  );
                 }}
-                className="chip-row -mx-4 px-4 md:mx-0 md:px-0"
+                className="chip-row border-border relative -mx-4 gap-1 border-b px-4 md:mx-0 md:px-0"
               >
-                {[{ id: "", name: "ทั้งหมด" }, ...menu.categories].map(({ id, name }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={category === id}
-                    onClick={(e) => {
-                      setCategory(id);
-                      e.currentTarget.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-                    }}
-                    className={cn(
-                      "focus-visible:ring-primary/50 h-9 shrink-0 cursor-pointer rounded-full border px-4 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
-                      category === id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-surface text-muted-foreground hover:bg-primary-soft hover:text-primary-strong",
-                    )}
-                  >
-                    {name}
-                  </button>
-                ))}
+                {[{ id: "", name: "ทั้งหมด" }, ...menu.categories].map(
+                  ({ id, name }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      aria-selected={category === id}
+                      onClick={(e) => {
+                        setCategory(id);
+                        e.currentTarget.scrollIntoView({
+                          behavior: "smooth",
+                          inline: "center",
+                          block: "nearest",
+                        });
+                      }}
+                      className={cn(
+                        "focus-visible:ring-primary/50 h-11 shrink-0 cursor-pointer px-4 text-sm whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-inset",
+                        category === id
+                          ? "text-primary-strong font-bold"
+                          : "text-muted-foreground hover:bg-primary-soft hover:text-primary-strong font-medium",
+                      )}
+                    >
+                      {name}
+                    </button>
+                  ),
+                )}
+                {indicator && (
+                  <m.span
+                    aria-hidden
+                    className="bg-primary pointer-events-none absolute bottom-[-1px] left-0 h-[3px] rounded-full"
+                    initial={false}
+                    animate={{ x: indicator.x, width: indicator.width }}
+                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
+                  />
+                )}
               </div>
             )}
           </div>
 
-          <main className={cn("flex flex-col gap-4 px-4 pt-3 md:px-0", "pb-28")}>
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-display text-foreground text-xl">เลือกความอร่อย</h2>
-              <p className="text-muted-foreground text-xs">{available} เมนูพร้อมเสิร์ฟ</p>
-            </div>
-            {visibleItems.length === 0 ? (
-              <p className="text-muted-foreground py-16 text-center text-sm">
-                {menu.items.length === 0
-                  ? "ร้านยังไม่มีเมนูให้สั่งในตอนนี้"
-                  : "ไม่พบเมนูที่ค้นหา ลองคำอื่นหรือเลือกหมวดอื่น"}
-              </p>
-            ) : (
-              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
-                {visibleItems.map((item) => (
-                  <MenuCard
-                    key={item.id}
-                    item={item}
-                    quantity={inCart(item.id)}
-                    canOrder={menu.canOrder}
-                    onChange={(q) => setSimple(item.id, q)}
-                    onChoose={() => setOptionItem(item)}
-                    onBlocked={() => setClosedOpen(true)}
-                  />
-                ))}
-              </ul>
+          <main
+            className={cn("flex flex-col gap-4 px-4 pt-3 md:px-0", "pb-28")}
+          >
+            {featuredItems.length > 0 && (
+              <section
+                aria-labelledby="featured-title"
+                className="bg-primary-soft -mx-4 flex flex-col gap-4 px-4 py-5 md:mx-0 md:rounded-2xl md:px-5"
+              >
+                <div>
+                  <h2
+                    id="featured-title"
+                    className="font-display text-foreground text-2xl font-bold"
+                  >
+                    เมนูแนะนำ
+                  </h2>
+                  <p className="text-muted-foreground mt-1 text-sm">
+                    เมนูขายดีที่ร้านอยากให้ลอง
+                  </p>
+                </div>
+                {renderGrid(featuredItems)}
+              </section>
             )}
-            <p className="text-muted-foreground pt-6 text-center text-xs">สั่งอาหารด้วย {siteConfig.name}</p>
+
+            <m.section
+              key={category}
+              className="flex flex-col gap-4"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-display text-foreground text-2xl font-bold">
+                  {category
+                    ? (menu.categories.find((c) => c.id === category)?.name ??
+                      "เมนู")
+                    : query
+                      ? "ผลการค้นหา"
+                      : "เมนูทั้งหมด"}
+                </h2>
+                <p className="text-muted-foreground text-xs">
+                  {available} เมนูพร้อมเสิร์ฟ
+                </p>
+              </div>
+              {visibleItems.length === 0 ? (
+                <p className="text-muted-foreground py-16 text-center text-sm">
+                  {menu.items.length === 0
+                    ? "ร้านยังไม่มีเมนูให้สั่งในตอนนี้"
+                    : "ไม่พบเมนูที่ค้นหา ลองคำอื่นหรือเลือกหมวดอื่น"}
+                </p>
+              ) : (
+                renderGrid(visibleItems)
+              )}
+            </m.section>
+            <p className="text-muted-foreground pt-6 text-center text-xs">
+              สั่งอาหารด้วย {siteConfig.name}
+            </p>
           </main>
         </div>
 
@@ -381,8 +571,14 @@ export function CustomerOrder({ token }: { token: string }) {
           className="bg-surface border-border shadow-card sticky top-6 mt-6 hidden max-h-[calc(100dvh-3rem)] flex-col gap-4 overflow-y-auto rounded-2xl border p-5 lg:flex"
         >
           <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-foreground text-xl">ตะกร้าของ{menu.table.name}</h2>
-            {count > 0 && <span className="text-muted-foreground text-xs">{count} รายการ</span>}
+            <h2 className="font-display text-foreground text-xl">
+              ตะกร้าของ{menu.table.name}
+            </h2>
+            {count > 0 && (
+              <span className="text-muted-foreground text-xs">
+                {count} รายการ
+              </span>
+            )}
           </div>
           <CartPanel {...cartProps} />
         </aside>
@@ -391,24 +587,43 @@ export function CustomerOrder({ token }: { token: string }) {
       {count > 0 && (
         <button
           type="button"
-          onClick={() => (menu.canOrder ? setCartOpen(true) : setClosedOpen(true))}
-          aria-label={`ตะกร้า ${count} รายการ ${baht(total)}`}
-          className="bg-primary text-primary-foreground hover:bg-primary-strong shadow-float focus-visible:ring-primary/50 fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] z-30 flex h-14 cursor-pointer items-center gap-3 rounded-full pr-5 pl-4 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none lg:hidden"
+          onClick={() =>
+            menu.canOrder ? setCartOpen(true) : setClosedOpen(true)
+          }
+          aria-label={`ตะกร้า ${count} รายการ`}
+          className="bg-primary text-primary-foreground hover:bg-primary-strong shadow-float focus-visible:ring-primary/50 fixed right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom)+1rem)] z-30 flex size-14 cursor-pointer items-center justify-center rounded-full font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none lg:hidden"
         >
           <span className="relative">
-            <ShoppingBasket className="size-6" aria-hidden />
-            <span className="bg-surface text-primary-strong absolute -top-2 -right-2.5 flex size-5 items-center justify-center rounded-full text-[11px] font-bold tabular-nums">
+            <PiBasketFill className="size-6" aria-hidden />
+            <span className="text-surface absolute -top-2.5 -right-3 flex size-5 items-center justify-center rounded-full text-[11px] font-bold tabular-nums">
               {count}
             </span>
           </span>
-          <span className="tabular-nums">{baht(total)}</span>
         </button>
       )}
 
       <CustomerNav token={token} active="menu" inProgress={inProgress} />
 
-      <OptionSheet item={optionItem} onAdd={addWithOptions} onClose={() => setOptionItem(null)} />
-      <CartPage open={cartOpen} tableName={menu.table.name} onClose={() => setCartOpen(false)} {...cartProps} />
+      <OptionSheet
+        item={optionItem}
+        onAdd={addWithOptions}
+        onClose={() => setOptionItem(null)}
+      />
+      <CartPage
+        open={cartOpen}
+        tableName={menu.table.name}
+        onClose={() => setCartOpen(false)}
+        {...cartProps}
+      />
+      <ConfirmOrderDialog
+        open={confirmOpen}
+        lines={lines}
+        total={total}
+        loading={submitting}
+        onChange={setLine}
+        onConfirm={() => void submit()}
+        onClose={() => setConfirmOpen(false)}
+      />
       <CallStaffDialog
         open={callOpen}
         tableName={menu.table.name}

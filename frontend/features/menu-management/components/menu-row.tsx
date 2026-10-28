@@ -5,16 +5,18 @@ import Image from "next/image";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ListPlus, Pencil, Trash2 } from "lucide-react";
+import { PiStarBold, PiStarFill } from "react-icons/pi";
 import { Switch } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { MENU_IMAGE_SIZE, type MenuItem } from "@/features/menu-management/types";
 
 /** คอลัมน์ของตาราง ใช้ร่วมกับหัวตาราง (ตั้งแต่ xl ขึ้นไป) */
 export const MENU_GRID =
-  "xl:grid xl:grid-cols-[36px_82px_minmax(0,1fr)_106px_182px_120px] xl:items-center";
+  "xl:grid xl:grid-cols-[36px_82px_minmax(0,1fr)_106px_182px_164px] xl:items-center";
 
 export interface MenuRowActions {
   onToggle: (id: string, available: boolean) => void;
+  onToggleFeatured: (id: string, featured: boolean) => void;
   onEdit: (menu: MenuItem) => void;
   onDelete: (menu: MenuItem) => void;
 }
@@ -41,10 +43,11 @@ export function MenuRowBody({
   rowRef,
   dragging,
   onToggle,
+  onToggleFeatured,
   onEdit,
   onDelete,
 }: MenuRowBodyProps) {
-  const { name, description, price, available, image, optionGroups } = menu;
+  const { name, description, price, available, featured, image, optionGroups } = menu;
 
   return (
     <li
@@ -120,6 +123,21 @@ export function MenuRowBody({
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-pressed={featured}
+            aria-label={featured ? `เอา ${name} ออกจากเมนูแนะนำ` : `แนะนำ ${name}`}
+            title={featured ? "เมนูแนะนำ (กดเพื่อยกเลิก)" : "แนะนำเมนูนี้"}
+            onClick={() => onToggleFeatured(menu.id, !featured)}
+            className={cn(
+              "focus-visible:ring-primary/50 flex size-[38px] cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none",
+              featured
+                ? "bg-warning-soft text-warning-strong hover:bg-warning-soft/70"
+                : "bg-muted text-muted-foreground hover:bg-primary-soft hover:text-primary-strong",
+            )}
+          >
+            {featured ? <PiStarFill className="size-5" aria-hidden /> : <PiStarBold className="size-5" aria-hidden />}
+          </button>
           <button
             type="button"
             aria-label={`แก้ไข ${name}`}

@@ -23,6 +23,7 @@ const PLACEHOLDER: MenuData = {
     price: 100,
     image: "",
     available: true,
+    featured: false,
     categoryId: index < 3 ? "c1" : "c2",
     sortOrder: index,
     optionGroups: [],
@@ -34,6 +35,7 @@ const NOOP_ACTIONS: MenuActions = {
   updateItem: async () => undefined,
   deleteItem: async () => undefined,
   toggleAvailable: () => undefined,
+  toggleFeatured: () => undefined,
   createCategory: async () => undefined,
   updateCategory: async () => undefined,
   deleteCategory: async () => undefined,
@@ -93,6 +95,21 @@ export function MenuWorkspace() {
             notify.success(
               available ? `เปิดขาย ${item.name} แล้ว` : `ปิดขาย ${item.name} ชั่วคราวแล้ว`,
               "ลูกค้าจะเห็นการเปลี่ยนแปลงบนหน้าสั่งอาหารทันที",
+            ),
+          rollback,
+        );
+      },
+
+      toggleFeatured(item, featured) {
+        update((current) => ({
+          ...current,
+          items: current.items.map((existing) => (existing.id === item.id ? { ...existing, featured } : existing)),
+        }));
+        menuApi.updateItem(item.id, { featured }).then(
+          () =>
+            notify.success(
+              featured ? `แนะนำ ${item.name} แล้ว` : `เอา ${item.name} ออกจากเมนูแนะนำแล้ว`,
+              featured ? "ลูกค้าจะเห็นเมนูนี้ที่ด้านบนสุดของหน้าสั่งอาหาร" : undefined,
             ),
           rollback,
         );

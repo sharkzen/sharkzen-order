@@ -25,7 +25,9 @@ import {
   toBoard,
   type Board,
 } from "@/features/menu-management/lib/menu-utils";
+import { notify } from "@/lib/toast";
 import {
+  MAX_FEATURED,
   NO_CATEGORY,
   type Category,
   type MenuData,
@@ -47,6 +49,7 @@ export interface MenuActions {
   updateItem: (id: string, input: MenuItemInput) => Promise<void>;
   deleteItem: (item: MenuItem) => Promise<void>;
   toggleAvailable: (item: MenuItem, available: boolean) => void;
+  toggleFeatured: (item: MenuItem, featured: boolean) => void;
   createCategory: (values: { name: string; visible: boolean }) => Promise<void>;
   updateCategory: (id: string, values: { name: string; visible: boolean }) => Promise<void>;
   /** deleteItems = ลบเมนูทั้งหมดในหมวดด้วย */
@@ -159,6 +162,18 @@ export function MenuView({ data, actions }: MenuViewProps) {
       const item = itemsById.get(id);
       if (item) actions.toggleAvailable(item, available);
     },
+    onToggleFeatured: (id: string, featured: boolean) => {
+      const item = itemsById.get(id);
+      if (!item) return;
+      if (featured && data.items.filter((existing) => existing.featured).length >= MAX_FEATURED) {
+        notify.warning(
+          `แนะนำได้ไม่เกิน ${MAX_FEATURED} เมนู`,
+          "กดดาวที่เมนูที่แนะนำอยู่เพื่อยกเลิก แล้วเลือกเมนูใหม่",
+        );
+        return;
+      }
+      actions.toggleFeatured(item, featured);
+    },
     onEdit: (item: MenuItem) => setItemDialog({ item, categoryId: item.categoryId }),
     onDelete: setPendingDeleteItem,
   };
@@ -198,6 +213,13 @@ export function MenuView({ data, actions }: MenuViewProps) {
     <div className="flex w-full flex-col gap-5 sm:gap-6">
       <MenuPageHeader onAddItem={() => setItemDialog({ item: null, categoryId: defaultCategory })} />
       <MenuSummary {...summary} />
+      <p className="text-muted-foreground bg-primary-soft rounded-xl px-4 py-3 text-sm leading-relaxed">
+        <span className="text-primary-strong font-semibold">
+          เมนูแนะนำ {data.items.filter((item) => item.featured).length}/{MAX_FEATURED}
+        </span>{" "}
+        แนะนำได้ไม่เกิน {MAX_FEATURED} เมนู ควรเลือกเมนูขายดีของร้าน กดดาวที่เมนูเพื่อแนะนำ
+        ลูกค้าจะเห็นที่ด้านบนสุดของหน้าสั่งอาหาร
+      </p>
       <MenuFilters query={query} sale={sale} onQueryChange={setQuery} onSaleChange={setSale} />
 
       <div className="grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">

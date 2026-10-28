@@ -2,7 +2,7 @@
 
 import { AnimatePresence, m } from "framer-motion";
 import { CircleCheck, ReceiptText } from "lucide-react";
-import { BsQrCode } from "react-icons/bs";
+import { FaMobileScreenButton } from "react-icons/fa6";
 import { Badge } from "@/components/ui";
 import { DEMO_ORDER_TOTAL, DEMO_TABLE } from "@/features/landing/data";
 import { DemoPanel } from "./demo-panel";
@@ -58,8 +58,8 @@ export function BillPanel({ stage }: { stage: number }) {
             <p className="text-muted-foreground flex h-4 items-center gap-1.5 text-xs">
               {paid && (
                 <>
-                  <BsQrCode className="text-primary size-3" aria-hidden />
-                  ชำระด้วยพร้อมเพย์
+                  <FaMobileScreenButton className="text-primary size-3" aria-hidden />
+                  ชำระด้วยโอนจ่าย
                 </>
               )}
             </p>

@@ -1,10 +1,5 @@
 import type { IconType } from "react-icons";
-import { BsQrCode } from "react-icons/bs";
-import {
-  FaBuildingColumns,
-  FaCreditCard,
-  FaMoneyBill1Wave,
-} from "react-icons/fa6";
+import { FaMobileScreenButton, FaMoneyBill1Wave } from "react-icons/fa6";
 
 /** ข้อมูลตัวอย่างสำหรับหน้าแนะนำระบบ — ชื่อร้านเป็นชื่อสมมติ ไม่ได้อ้างอิงร้านจริง */
 export const DEMO_RESTAURANT = {
@@ -55,13 +50,12 @@ export interface PaymentMethod {
 
 /** ยอดรวมทุกช่องทาง = 12,480 บาท (ตรงกับรายได้วันนี้ในภาพจำลอง dashboard) */
 export const PAYMENT_METHODS: PaymentMethod[] = [
-  { id: "promptpay", label: "พร้อมเพย์", icon: BsQrCode, amount: 7240 },
-  { id: "cash", label: "เงินสด", icon: FaMoneyBill1Wave, amount: 2990 },
+  { id: "cash", label: "เงินสด", icon: FaMoneyBill1Wave, amount: 4980 },
   {
     id: "transfer",
-    label: "โอนผ่านธนาคาร",
-    icon: FaBuildingColumns,
-    amount: 500,
+    label: "โอนจ่าย",
+    icon: FaMobileScreenButton,
+    amount: 7500,
   },
 ];
 
