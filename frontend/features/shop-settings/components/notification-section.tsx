@@ -1,4 +1,4 @@
-import type { ShopSettings } from "../types";
+import type { ShopSettings } from "@/features/shop-settings/types";
 import { SettingsSection, ToggleRow } from "./settings-section";
 
 interface NotificationSectionProps {

@@ -3,8 +3,8 @@ import {
   FOOD_STATUS_BADGE,
   PAYMENT_BADGE,
   PAYMENT_METHOD_LABEL,
-} from "../lib/labels";
-import type { FoodStatus, PaymentMethod, PaymentStatus } from "../types";
+} from "@/features/order-management/lib/labels";
+import type { FoodStatus, PaymentMethod, PaymentStatus } from "@/features/order-management/types";
 
 export function FoodStatusBadge({ status }: { status: FoodStatus }) {
   const { label, tone, icon: Icon } = FOOD_STATUS_BADGE[status];

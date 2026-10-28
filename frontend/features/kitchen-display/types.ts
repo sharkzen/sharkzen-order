@@ -2,7 +2,13 @@
 export type KitchenStatus = "new" | "preparing" | "ready";
 
 export interface KitchenItem {
+  /** รหัสรายการในออเดอร์ ใช้ตอนยกเลิกรายจาน */
+  id: string;
   name: string;
+  /** ตัวเลือกที่ลูกค้าเลือก เช่น ["เผ็ดน้อย", "ไข่มุก"] */
+  options?: string[];
+  /** หมายเหตุของรายการนี้จากลูกค้า */
+  note?: string;
   quantity: number;
   /** จำนวนที่ครัวยกเลิกไปแล้ว (เช่น วัตถุดิบหมด) ที่เหลือ = quantity - cancelledQty */
   cancelledQty?: number;
@@ -17,7 +23,10 @@ export interface FrontCancellation {
 }
 
 export interface KitchenOrder {
+  /** รหัสในระบบ ใช้เรียก API */
   id: string;
+  /** รหัสที่แสดง เช่น #1042 */
+  code: string;
   table: string;
   /** เวลาที่ลูกค้าสั่ง รูปแบบ HH:mm */
   orderedAt: string;
@@ -29,8 +38,8 @@ export interface KitchenOrder {
   payment: { state: PaymentState; method: string };
   status: KitchenStatus;
   /**
-   * วินาทีที่นาฬิกาของกระดานเริ่มนับสถานะปัจจุบัน (ค่าลบ = เริ่มมาก่อนเปิดหน้า)
-   * เวลารอ = ticks ปัจจุบัน - since
+   * เวลาที่ออเดอร์เข้าสถานะปัจจุบัน (epoch วินาที จากเซิร์ฟเวอร์)
+   * เวลารอ = เวลาปัจจุบัน(วินาที) - since
    */
   since: number;
   /** มีค่า = หน้าร้านยกเลิกแล้ว การ์ดจะค้างเป็นสีแดงให้ครัวกดรับทราบ */

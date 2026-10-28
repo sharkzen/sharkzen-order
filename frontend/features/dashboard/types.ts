@@ -22,19 +22,23 @@ export interface Metric {
 }
 
 export interface RevenueBar {
+  /** ป้ายของช่วง เช่น "13:00" (รายชั่วโมง), "24 ต.ค." (รายวัน), "ต.ค. 69" (รายเดือน) */
   time: string;
-  /** รายได้ในช่วง 30 นาที (บาท) */
+  /** รายได้ในช่วงนั้น (บาท) */
   amount: number;
 }
 
 export interface RevenueSummary {
   total: number;
-  changePercent: number;
+  /** null เมื่อช่วงก่อนหน้าไม่มียอดให้เทียบ */
+  changePercent: number | null;
   /** ค่าสูงสุดของแกนตั้ง */
   axisMax: number;
   bars: RevenueBar[];
   /** ป้ายแกนเวลาใต้กราฟ */
   timeLabels: string[];
+  /** หน่วยของแต่ละแท่ง เช่น "ชั่วโมง" "วัน" "เดือน" */
+  unitLabel: string;
   updatedAt: string;
 }
 
@@ -50,7 +54,6 @@ export interface PopularMenu {
   name: string;
   quantity: number;
   revenue: number;
-  image: string;
 }
 
 export interface RecentOrder {

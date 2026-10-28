@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { Metric, Tone } from "../../types";
+import type { Metric, Tone } from "@/features/dashboard/types";
 
 const ICON_TONE: Record<Tone, string> = {
   primary: "text-primary",

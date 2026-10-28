@@ -2,14 +2,14 @@ import { useEffect, useRef } from "react";
 import { Ban, ChevronRight, ClipboardCheck, ListChecks, X } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { COLUMN_BY_STATUS } from "../lib/columns";
+import { COLUMN_BY_STATUS } from "@/features/kitchen-display/lib/columns";
 import {
   activeQuantity,
   countItems,
   isUrgent,
   waitMinutes,
-} from "../lib/kitchen-utils";
-import type { KitchenOrder } from "../types";
+} from "@/features/kitchen-display/lib/kitchen-utils";
+import type { KitchenOrder } from "@/features/kitchen-display/types";
 import { NoteStrip } from "./order-notes";
 import { WaitBadge } from "./wait-badge";
 
@@ -83,7 +83,7 @@ export function KitchenOrderCard({
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-muted-foreground text-xs font-semibold">
-          {order.id}
+          {order.code}
         </span>
         {cancelled ? (
           <Badge tone="danger">
@@ -98,7 +98,7 @@ export function KitchenOrderCard({
       <button
         type="button"
         onClick={() => onOpen(order)}
-        aria-label={`ดูรายละเอียดคำสั่งซื้อ ${order.id} โต๊ะ ${order.table}`}
+        aria-label={`ดูรายละเอียดคำสั่งซื้อ ${order.code} โต๊ะ ${order.table}`}
         className="group hover:bg-background/70 focus-visible:ring-primary/50 -mx-1.5 flex cursor-pointer items-center justify-between gap-2 rounded-lg px-1.5 py-0.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
       >
         <span
@@ -133,7 +133,7 @@ export function KitchenOrderCard({
         {visibleItems.map((item) => {
           const active = activeQuantity(item);
           return (
-            <li key={item.name} className="flex flex-col gap-1">
+            <li key={item.id} className="flex flex-col gap-1">
               {active > 0 && (
                 <div className="flex items-center gap-2.5">
                   <span className="bg-background text-foreground flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-sm font-bold">
@@ -146,6 +146,16 @@ export function KitchenOrderCard({
                     )}
                   >
                     {item.name}
+                    {item.options && item.options.length > 0 && (
+                      <span className="text-primary-strong mt-0.5 block text-[13px] font-medium">
+                        {item.options.join(" • ")}
+                      </span>
+                    )}
+                    {item.note && (
+                      <span className="text-warning-strong mt-0.5 block text-[13px] font-medium">
+                        หมายเหตุ: {item.note}
+                      </span>
+                    )}
                   </span>
                 </div>
               )}
@@ -212,7 +222,7 @@ export function KitchenOrderCard({
               variant="outline"
               className="text-danger-strong hover:bg-danger-soft hover:border-danger/40 h-10 gap-1 px-3 text-sm"
               onClick={() => onCancel(order)}
-              aria-label={`ยกเลิกคำสั่งซื้อ ${order.id} โต๊ะ ${order.table}`}
+              aria-label={`ยกเลิกคำสั่งซื้อ ${order.code} โต๊ะ ${order.table}`}
             >
               <X className="size-4" aria-hidden />
               ยกเลิก

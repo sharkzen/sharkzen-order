@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useReducedMotion } from "framer-motion";
-import { DEMO_LAST_STAGE, DEMO_STAGES } from "../../data";
+import { DEMO_LAST_STAGE, DEMO_STAGES } from "@/features/landing/data";
 import { BillPanel } from "./bill-panel";
 import { KitchenPanel } from "./kitchen-panel";
 import { PhonePanel } from "./phone-panel";

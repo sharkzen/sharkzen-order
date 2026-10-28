@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { getPasswordStrength } from "../lib/password-strength";
+import { getPasswordStrength } from "@/features/auth/lib/password-strength";
 
 const BAR_TONES = [
   "",

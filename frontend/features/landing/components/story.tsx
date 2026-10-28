@@ -4,7 +4,7 @@ import { Heart, MapPin } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { Badge } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { DEMO_RESTAURANT } from "../data";
+import { DEMO_RESTAURANT } from "@/features/landing/data";
 
 const HIGHLIGHTS = [
   { title: "ไม่ต้องติดตั้ง", text: "เปิดผ่านเบราว์เซอร์ได้เลย" },

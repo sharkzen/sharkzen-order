@@ -48,7 +48,7 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cn(
-        "bg-surface text-foreground shadow-float m-auto max-h-[92vh] w-[min(94vw,480px)] overflow-y-auto rounded-xl p-0 backdrop:bg-[#0a1d3a]/50",
+        "bg-surface text-foreground shadow-float scroll-thin m-auto max-h-[92dvh] w-[min(94vw,480px)] overflow-y-auto overscroll-contain rounded-xl p-0 backdrop:bg-[#0a1d3a]/50",
         className,
       )}
     >

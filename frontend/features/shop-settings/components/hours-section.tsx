@@ -1,8 +1,8 @@
 import { Copy } from "lucide-react";
 import { Button, Switch } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { WEEKDAY_NAMES } from "../data/settings";
-import type { DayHours, SettingsErrors, ShopSettings } from "../types";
+import { WEEKDAY_NAMES } from "@/features/shop-settings/lib/weekdays";
+import type { DayHours, SettingsErrors, ShopSettings } from "@/features/shop-settings/types";
 import { SettingsSection } from "./settings-section";
 
 const TIME_INPUT =

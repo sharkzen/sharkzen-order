@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { SectionHeading } from "@/components/layout/section-heading";
-import { Badge, buttonVariants } from "@/components/ui";
+import { buttonVariants } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/cn";
 import {
@@ -16,7 +16,7 @@ import {
   yearlyPerMonth,
   yearlySavings,
   type BillingCycle,
-} from "../data";
+} from "@/features/landing/data";
 
 const CYCLES: { value: BillingCycle; label: string }[] = [
   { value: "monthly", label: "รายเดือน" },
@@ -82,23 +82,20 @@ export function Pricing() {
           <article
             key={plan.id}
             className={cn(
-              "bg-surface flex flex-col gap-[22px] rounded-xl p-7",
+              "bg-surface relative flex flex-col gap-[22px] rounded-xl p-7",
               plan.featured
                 ? "border-primary border-2"
                 : "border-border border",
             )}
           >
-            <div className="flex items-center justify-between">
-              <h3 className="font-display text-foreground text-[23px] font-semibold">
-                {plan.name}
-              </h3>
-              {plan.featured && (
-                <Badge tone="info">
-                  <Sparkles className="size-[13px]" aria-hidden />
-                  แนะนำ
-                </Badge>
-              )}
-            </div>
+            {plan.featured && (
+              <span className="bg-primary text-primary-foreground absolute -top-3 left-7 rounded-full px-3 py-1 text-xs leading-none font-semibold">
+                แนะนำ
+              </span>
+            )}
+            <h3 className="font-display text-foreground text-[23px] font-semibold">
+              {plan.name}
+            </h3>
             <p className="text-muted-foreground text-[13px]">
               {plan.description}
             </p>

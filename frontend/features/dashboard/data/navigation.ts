@@ -2,6 +2,7 @@ import {
   Banknote,
   ChartNoAxesCombined,
   ChefHat,
+  Gem,
   LayoutDashboard,
   QrCode,
   ReceiptText,
@@ -10,7 +11,7 @@ import {
   Utensils,
 } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import type { NavItem } from "../types";
+import type { NavItem } from "@/features/dashboard/types";
 
 export const SIDEBAR_NAV: NavItem[] = [
   { label: "ภาพรวมร้านอาหาร", href: ROUTES.dashboard, icon: LayoutDashboard },
@@ -18,7 +19,6 @@ export const SIDEBAR_NAV: NavItem[] = [
     label: "คำสั่งซื้อ",
     href: ROUTES.orders,
     icon: ReceiptText,
-    count: 13,
     pageTitle: "จัดการคำสั่งซื้อ",
   },
   { label: "คิดเงิน", href: ROUTES.cashier, icon: Banknote },
@@ -32,5 +32,11 @@ export const SIDEBAR_NAV: NavItem[] = [
   { label: "หน้าจอครัว", href: ROUTES.kitchen, icon: ChefHat },
   { label: "รายงานยอดขาย", href: ROUTES.reports, icon: ChartNoAxesCombined },
   { label: "พนักงาน", href: ROUTES.staff, icon: Users },
+  {
+    label: "แพ็กเกจ",
+    href: ROUTES.plan,
+    icon: Gem,
+    pageTitle: "แพ็กเกจและการชำระเงิน",
+  },
   { label: "ตั้งค่าร้าน", href: ROUTES.settings, icon: Settings },
 ];

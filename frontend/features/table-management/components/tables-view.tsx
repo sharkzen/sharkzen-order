@@ -3,21 +3,19 @@
 import { useCallback, useMemo, useState } from "react";
 import { Info, SearchX } from "lucide-react";
 import { Badge, Card, ConfirmDialog, EmptyState } from "@/components/ui";
-import type { PrintSettings } from "../lib/print-settings";
+import type { PrintSettings } from "@/features/table-management/lib/print-settings";
 import { notify } from "@/lib/toast";
 import {
-  createSession,
-  namesFor,
   filterTables,
   listZones,
   summarize,
-} from "../lib/table-utils";
+} from "@/features/table-management/lib/table-utils";
 import type {
   CreateSpec,
   DiningTable,
   EditValues,
   StatusFilter,
-} from "../types";
+} from "@/features/table-management/types";
 import { PrintDialog } from "./print-dialog";
 import { PrintSheet } from "./print-sheet";
 import { QrDialog } from "./qr-dialog";
@@ -30,16 +28,26 @@ import { TablesSummary } from "./tables-summary";
 
 type FormTarget = DiningTable | "new" | null;
 
+export interface TableActions {
+  open: (table: DiningTable) => Promise<void>;
+  close: (table: DiningTable) => Promise<void>;
+  /** คืนโต๊ะที่สร้างใหม่ หรือ undefined เมื่อสร้างไม่สำเร็จ (แจ้งสาเหตุให้แล้ว) */
+  create: (spec: CreateSpec) => Promise<DiningTable[] | undefined>;
+  update: (id: string, values: EditValues) => Promise<boolean>;
+  remove: (table: DiningTable) => Promise<boolean>;
+}
+
 /**
  * พื้นที่ทำงานของหน้าโต๊ะและคิวอาร์โค้ด (client เพราะมีตัวกรอง ฟอร์ม เปิด-ปิดโต๊ะ และพิมพ์)
- * สถานะเก็บในหน้านี้ก่อน เมื่อมี API ให้เรียกบันทึกที่ openTable / closeTable / handleCreate / confirmDelete
+ * ไม่ดึงข้อมูลเอง รับข้อมูลและ actions จาก TablesWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้ด้วย
  */
-export function TablesWorkspace({
-  initialTables,
+export function TablesView({
+  tables,
+  actions,
 }: {
-  initialTables: DiningTable[];
+  tables: DiningTable[];
+  actions: TableActions;
 }) {
-  const [tables, setTables] = useState(initialTables);
   const [query, setQuery] = useState("");
   const [zone, setZone] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
@@ -68,52 +76,25 @@ export function TablesWorkspace({
   const finishPrint = useCallback(() => setSheet(null), []);
 
   function openTable(table: DiningTable) {
-    const session = createSession();
-    setTables((prev) =>
-      prev.map((t) => (t.id === table.id ? { ...t, session } : t)),
-    );
-    notify.success(
-      `เปิด ${table.name} แล้ว`,
-      `รหัสรอบ ${session.id} • ลูกค้าสแกน QR สั่งอาหารได้ทันที`,
-    );
+    void actions.open(table);
   }
 
   function confirmClose() {
     if (!pendingClose) return;
-    const target = pendingClose;
-    setTables((prev) =>
-      prev.map((t) => (t.id === target.id ? { ...t, session: null } : t)),
-    );
-    notify.success(`ปิด ${target.name} แล้ว`, "ลูกค้าคนถัดไปจะได้รหัสรอบใหม่");
+    void actions.close(pendingClose);
     setPendingClose(null);
   }
 
-  function handleCreate(spec: CreateSpec) {
-    const created: DiningTable[] = namesFor(spec).map((name) => ({
-      id: crypto.randomUUID().slice(0, 8),
-      name,
-      zone: spec.zone,
-      seats: spec.seats,
-      session: null,
-    }));
-    setTables((prev) => [...prev, ...created]);
+  async function handleCreate(spec: CreateSpec) {
+    const created = await actions.create(spec);
+    if (!created) return;
     // เลือกโต๊ะที่เพิ่งสร้างไว้ให้ พร้อมกดพิมพ์ QR ไปติดโต๊ะได้ทันที
     setSelected(new Set(created.map((t) => t.id)));
     setFormTarget(null);
-    notify.success(
-      created.length === 1
-        ? `เพิ่ม ${created[0].name} แล้ว`
-        : `เพิ่ม ${created.length} โต๊ะแล้ว`,
-      "เลือกไว้ให้แล้ว กดพิมพ์ QR ไปติดโต๊ะได้เลย",
-    );
   }
 
-  function handleEdit(id: string, values: EditValues) {
-    setTables((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...values } : t)),
-    );
-    notify.success(`บันทึก ${values.name} แล้ว`);
-    setFormTarget(null);
+  async function handleEdit(id: string, values: EditValues) {
+    if (await actions.update(id, values)) setFormTarget(null);
   }
 
   function askDelete(table: DiningTable) {
@@ -124,17 +105,17 @@ export function TablesWorkspace({
     setPendingDelete(table);
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!pendingDelete) return;
-    const id = pendingDelete.id;
-    setTables((prev) => prev.filter((t) => t.id !== id));
-    setSelected((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
-    notify.success(`ลบ ${pendingDelete.name} แล้ว`);
+    const target = pendingDelete;
     setPendingDelete(null);
+    if (await actions.remove(target)) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
+    }
   }
 
   function select(id: string, on: boolean) {
@@ -286,7 +267,7 @@ export function TablesWorkspace({
         }
         confirmLabel="ลบโต๊ะ"
         tone="danger"
-        onConfirm={confirmDelete}
+        onConfirm={() => void confirmDelete()}
         onCancel={() => setPendingDelete(null)}
       />
       <PrintDialog

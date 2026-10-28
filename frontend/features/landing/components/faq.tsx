@@ -2,7 +2,7 @@ import { MessageCircle, Minus, Plus } from "lucide-react";
 import { Section } from "@/components/layout/section";
 import { buttonVariants } from "@/components/ui";
 import Link from "next/link";
-import { FAQS } from "../data";
+import { FAQS } from "@/features/landing/data";
 
 export function Faq() {
   return (

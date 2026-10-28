@@ -9,7 +9,7 @@ import {
   Users,
   Utensils,
 } from "lucide-react";
-import type { ResourceDef } from "../types";
+import type { ResourceDef } from "@/features/staff-management/types";
 
 /** แคตตาล็อกสิทธิ์ของทุกหน้า เพิ่มหน้าหรือการกระทำใหม่ที่นี่ที่เดียว ตารางสิทธิ์จะแสดงเองอัตโนมัติ */
 export const RESOURCES: ResourceDef[] = [

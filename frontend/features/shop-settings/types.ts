@@ -11,6 +11,8 @@ export interface ShopSettings {
   branch: string;
   phone: string;
   address: string;
+  /** URL รูปปกร้าน "" = ไม่มี */
+  coverImage: string;
   /** เรียงจันทร์ถึงอาทิตย์ */
   hours: DayHours[];
   acceptOrders: boolean;
@@ -21,6 +23,10 @@ export interface ShopSettings {
   acceptCounter: boolean;
   /** เลขพร้อมเพย์ (เบอร์โทร 10 หลัก หรือเลขประจำตัว 13 หลัก) */
   promptPayId: string;
+  /** ชื่อบัญชีพร้อมเพย์ */
+  promptPayTitle: string;
+  promptPayFirstName: string;
+  promptPayLastName: string;
   serviceChargePercent: number;
   vatIncluded: boolean;
   newOrderSound: boolean;
@@ -29,5 +35,5 @@ export interface ShopSettings {
 }
 
 export type SettingsErrors = Partial<
-  Record<"name" | "phone" | "promptPayId" | "serviceCharge" | "payment", string>
+  Record<"name" | "phone" | "promptPayId" | "promptPayName" | "serviceCharge" | "payment", string>
 > & { hours: Record<number, string> };

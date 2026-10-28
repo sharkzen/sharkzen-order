@@ -16,7 +16,7 @@ import {
   type PaperId,
   type PerPage,
   type PrintSettings,
-} from "../lib/print-settings";
+} from "@/features/table-management/lib/print-settings";
 import { Segmented } from "./segmented";
 
 const MAX_IMAGE_MB = 8;

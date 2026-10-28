@@ -1,6 +1,8 @@
-import { FormField, Input } from "@/components/ui";
-import type { SettingsErrors, ShopSettings } from "../types";
+import { FormField, Input, Select } from "@/components/ui";
+import type { SettingsErrors, ShopSettings } from "@/features/shop-settings/types";
 import { SettingsSection, ToggleRow } from "./settings-section";
+
+const TITLE_OPTIONS = ["นาย", "นาง", "นางสาว"].map((value) => ({ value, label: value }));
 
 interface OrderingSectionProps {
   values: ShopSettings;
@@ -67,6 +69,42 @@ export function OrderingSection({
               onChange={(e) => onChange({ promptPayId: e.target.value })}
               autoComplete="off"
             />
+          </FormField>
+        )}
+        {values.acceptTransfer && (
+          <FormField
+            label="ชื่อบัญชีพร้อมเพย์"
+            htmlFor="promptpay-first-name"
+            required
+            hint="ต้องตรงกับชื่อที่ลูกค้าเห็นตอนสแกนจ่าย"
+            error={errors.promptPayName}
+          >
+            <div className="grid gap-3 sm:grid-cols-[8rem_1fr_1fr]">
+              <Select
+                aria-label="คำนำหน้า"
+                placeholder="คำนำหน้า"
+                options={TITLE_OPTIONS}
+                value={values.promptPayTitle}
+                invalid={!!errors.promptPayName}
+                onChange={(promptPayTitle) => onChange({ promptPayTitle })}
+              />
+              <Input
+                id="promptpay-first-name"
+                placeholder="ชื่อ"
+                value={values.promptPayFirstName}
+                invalid={!!errors.promptPayName}
+                onChange={(e) => onChange({ promptPayFirstName: e.target.value })}
+                autoComplete="off"
+              />
+              <Input
+                aria-label="นามสกุล"
+                placeholder="นามสกุล"
+                value={values.promptPayLastName}
+                invalid={!!errors.promptPayName}
+                onChange={(e) => onChange({ promptPayLastName: e.target.value })}
+                autoComplete="off"
+              />
+            </div>
           </FormField>
         )}
         <ToggleRow

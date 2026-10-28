@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/cn";
-import type { AuthMode } from "../lib/auth-mode";
+import type { AuthMode } from "@/features/auth/lib/auth-mode";
 
 const TABS = [
   { mode: "login", href: ROUTES.login, label: "เข้าสู่ระบบ" },

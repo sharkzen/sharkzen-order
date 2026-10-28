@@ -1,9 +1,9 @@
 import { Badge } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { formatBaht } from "../../lib/format";
-import { STATUS_BADGE } from "../../lib/order-status";
-import type { RecentOrder } from "../../types";
-import { SectionCard } from "../shared/section-card";
+import { formatBaht } from "@/features/dashboard/lib/format";
+import { STATUS_BADGE } from "@/features/dashboard/lib/order-status";
+import type { RecentOrder } from "@/features/dashboard/types";
+import { SectionCard } from "@/features/dashboard/components/shared/section-card";
 
 /** คำสั่งซื้อล่าสุดในรูปแบบตาราง (หมายเลข/เวลา, โต๊ะ, ยอดรวม, สถานะ) */
 export function RecentOrdersCard({ orders }: { orders: RecentOrder[] }) {
@@ -23,6 +23,11 @@ export function RecentOrdersCard({ orders }: { orders: RecentOrder[] }) {
           <span>ยอดรวม</span>
           <span>สถานะ</span>
         </div>
+        {orders.length === 0 && (
+          <p className="text-muted-foreground py-6 text-center text-xs">
+            ไม่พบคำสั่งซื้อในช่วงที่เลือก
+          </p>
+        )}
         <ul className="flex flex-col gap-3.5">
           {orders.map((order) => {
             const badge = STATUS_BADGE[order.status];
@@ -41,7 +46,7 @@ export function RecentOrdersCard({ orders }: { orders: RecentOrder[] }) {
                   </span>
                 </div>
                 <span className="text-muted-foreground col-span-2 row-start-2 flex gap-3 text-xs sm:contents">
-                  <span className="text-foreground">โต๊ะ {order.table}</span>
+                  <span className="text-foreground">{order.table}</span>
                   <span className="text-foreground">
                     {formatBaht(order.total)}
                   </span>

@@ -1,5 +1,5 @@
 import { dayOrders, dayRevenue, formatDayMonth } from "./report-utils";
-import type { DailySales } from "../types";
+import type { DailySales } from "@/features/reports/types";
 
 /** ดาวน์โหลดยอดขายรายวันของช่วงที่เลือกเป็นไฟล์ CSV (ใส่ BOM เพื่อให้ Excel อ่านภาษาไทยถูกต้อง) */
 export function exportSalesCsv(days: DailySales[], fileName: string) {

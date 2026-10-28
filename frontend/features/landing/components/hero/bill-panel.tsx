@@ -4,7 +4,7 @@ import { AnimatePresence, m } from "framer-motion";
 import { CircleCheck, ReceiptText } from "lucide-react";
 import { BsQrCode } from "react-icons/bs";
 import { Badge } from "@/components/ui";
-import { DEMO_ORDER_TOTAL, DEMO_TABLE } from "../../data";
+import { DEMO_ORDER_TOTAL, DEMO_TABLE } from "@/features/landing/data";
 import { DemoPanel } from "./demo-panel";
 
 const BILL_READY_STAGE = 3;

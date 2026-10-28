@@ -1,6 +1,6 @@
 import { siteConfig } from "@/config/site";
-import type { PrintSettings } from "../lib/print-settings";
-import type { DiningTable } from "../types";
+import type { PrintSettings } from "@/features/table-management/lib/print-settings";
+import type { DiningTable } from "@/features/table-management/types";
 import { QrCode } from "./qr-code";
 
 interface QrCardProps {

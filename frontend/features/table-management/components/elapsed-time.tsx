@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatElapsed } from "../lib/table-utils";
+import { formatElapsed } from "@/features/table-management/lib/table-utils";
 
 /** เวลาที่โต๊ะเปิดมาแล้ว อัปเดตทุก 30 วินาที (ว่างไว้จนกว่าจะ mount เพื่อไม่ให้ SSR ไม่ตรงกัน) */
 export function ElapsedTime({ openedAt }: { openedAt: number }) {

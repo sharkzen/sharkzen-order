@@ -5,8 +5,8 @@ import { CircleCheck } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
 import { formatNumber } from "@/features/dashboard/lib/format";
 import { cn } from "@/lib/cn";
-import { nowClock } from "../lib/bill-utils";
-import { buildPromptPayPayload } from "../lib/promptpay";
+import { nowClock } from "@/features/cashier/lib/bill-utils";
+import { buildPromptPayPayload } from "@/features/cashier/lib/promptpay";
 import type {
   BillTotals,
   CheckoutConfig,
@@ -14,7 +14,7 @@ import type {
   FinishAction,
   Payment,
   TableBill,
-} from "../types";
+} from "@/features/cashier/types";
 import { CashPad } from "./cash-pad";
 import { FinishActions } from "./finish-actions";
 import { ThaiQrCard } from "./thai-qr-card";

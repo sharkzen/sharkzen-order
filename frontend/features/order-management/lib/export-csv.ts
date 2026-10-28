@@ -1,4 +1,4 @@
-import type { ManagedOrder } from "../types";
+import type { ManagedOrder } from "@/features/order-management/types";
 import {
   FOOD_STATUS_BADGE,
   PAYMENT_BADGE,
@@ -24,7 +24,7 @@ export function exportOrdersCsv(orders: ManagedOrder[], fileName: string) {
     "สถานะอาหาร",
   ];
   const rows = orders.map((order) => [
-    order.id,
+    order.code,
     order.time,
     order.table,
     summarizeItems(order.items),

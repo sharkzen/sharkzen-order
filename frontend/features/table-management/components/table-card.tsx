@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { DiningTable } from "../types";
+import type { DiningTable } from "@/features/table-management/types";
 import { ElapsedTime } from "./elapsed-time";
 
 interface TableCardProps {

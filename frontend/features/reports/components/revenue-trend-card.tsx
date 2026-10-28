@@ -11,8 +11,8 @@ import {
   dayRevenue,
   formatDayMonth,
   weekdayIndex,
-} from "../lib/report-utils";
-import type { DailySales } from "../types";
+} from "@/features/reports/lib/report-utils";
+import type { DailySales } from "@/features/reports/types";
 
 type View = "chart" | "table";
 

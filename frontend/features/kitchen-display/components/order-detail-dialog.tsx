@@ -1,15 +1,15 @@
 import { Ban, Check, ClipboardCheck, X } from "lucide-react";
 import { Badge, Button, Dialog } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { COLUMN_BY_STATUS } from "../lib/columns";
+import { COLUMN_BY_STATUS } from "@/features/kitchen-display/lib/columns";
 import {
   STEPS,
   activeQuantity,
   countItems,
   isUrgent,
   waitMinutes,
-} from "../lib/kitchen-utils";
-import type { KitchenItem, KitchenOrder } from "../types";
+} from "@/features/kitchen-display/lib/kitchen-utils";
+import type { KitchenItem, KitchenOrder } from "@/features/kitchen-display/types";
 import { NoteStrip } from "./order-notes";
 import { WaitBadge } from "./wait-badge";
 
@@ -101,7 +101,7 @@ export function OrderDetailDialog({
       open={order !== null}
       title={
         order
-          ? `รายละเอียดคำสั่งซื้อ ${order.id} โต๊ะ ${order.table}`
+          ? `รายละเอียดคำสั่งซื้อ ${order.code} โต๊ะ ${order.table}`
           : "รายละเอียดคำสั่งซื้อ"
       }
       onClose={onClose}
@@ -135,7 +135,7 @@ export function OrderDetailDialog({
                 )}
               </div>
               <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-[13px]">
-                <span>{order.id}</span>•<span>สั่ง {order.orderedAt} น.</span>•
+                <span>{order.code}</span>•<span>สั่ง {order.orderedAt} น.</span>•
                 <span
                   className={
                     order.payment.state === "paid"
@@ -195,7 +195,7 @@ export function OrderDetailDialog({
                   const removed = item.cancelledQty ?? 0;
                   return (
                     <li
-                      key={item.name}
+                      key={item.id}
                       className="flex flex-col gap-1 px-4 py-3"
                     >
                       {active > 0 && (
@@ -210,6 +210,16 @@ export function OrderDetailDialog({
                             )}
                           >
                             {item.name}
+                            {item.options && item.options.length > 0 && (
+                              <span className="text-primary-strong mt-0.5 block text-sm font-medium">
+                                {item.options.join(" • ")}
+                              </span>
+                            )}
+                            {item.note && (
+                              <span className="text-warning-strong mt-0.5 block text-sm font-medium">
+                                หมายเหตุ: {item.note}
+                              </span>
+                            )}
                           </span>
                           {canCancelItems && (
                             <button

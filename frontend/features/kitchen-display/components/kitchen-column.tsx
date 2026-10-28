@@ -1,8 +1,8 @@
 import { TriangleAlert } from "lucide-react";
 import { cn } from "@/lib/cn";
-import { COLUMN_BY_STATUS } from "../lib/columns";
-import { isUrgent } from "../lib/kitchen-utils";
-import type { KitchenOrder, KitchenStatus } from "../types";
+import { COLUMN_BY_STATUS } from "@/features/kitchen-display/lib/columns";
+import { isUrgent } from "@/features/kitchen-display/lib/kitchen-utils";
+import type { KitchenOrder, KitchenStatus } from "@/features/kitchen-display/types";
 import { KitchenOrderCard } from "./kitchen-order-card";
 
 interface KitchenColumnProps {

@@ -3,10 +3,9 @@
 import { useMemo, useState } from "react";
 import { Info, Search, SearchX } from "lucide-react";
 import { Badge, Card, ConfirmDialog, EmptyState, Input } from "@/components/ui";
-import { notify } from "@/lib/toast";
-import { OWNER_ROLE_ID, UPDATED_AT } from "../data/staff";
-import { sameSet } from "../lib/permission-utils";
-import type { PermissionKey, Role, StaffMember } from "../types";
+import { OWNER_ROLE_ID } from "@/features/staff-management/lib/staff-api";
+import { sameSet } from "@/features/staff-management/lib/permission-utils";
+import type { PermissionKey, Role, StaffMember } from "@/features/staff-management/types";
 import { MemberDialog, type MemberValues } from "./member-dialog";
 import { ResetPasswordDialog } from "./reset-password-dialog";
 import { RoleDialog } from "./role-dialog";
@@ -15,9 +14,23 @@ import { StaffList } from "./staff-list";
 import { StaffPageHeader } from "./staff-page-header";
 import { StaffTabs, type StaffTab } from "./staff-tabs";
 
-interface StaffWorkspaceProps {
-  initialStaff: StaffMember[];
-  initialRoles: Role[];
+export interface StaffActions {
+  /** สร้างบัญชี คืน true เมื่อสำเร็จ (ไม่สำเร็จจะแจ้งสาเหตุให้แล้ว) */
+  createMember: (values: MemberValues) => Promise<boolean>;
+  updateMember: (id: string, values: MemberValues) => Promise<boolean>;
+  setSuspended: (member: StaffMember, suspended: boolean) => Promise<void>;
+  removeMember: (member: StaffMember) => Promise<void>;
+  resetPassword: (member: StaffMember, password: string) => Promise<boolean>;
+  createRole: (values: { name: string; description: string; permissions: PermissionKey[] }) => Promise<Role | undefined>;
+  saveRole: (role: Role, permissions: PermissionKey[]) => Promise<boolean>;
+  deleteRole: (role: Role) => Promise<boolean>;
+}
+
+interface StaffViewProps {
+  staff: StaffMember[];
+  roles: Role[];
+  updatedAt: string;
+  actions: StaffActions;
   /** สร้างบัญชีพนักงานได้ (staff.create ปกติมีเฉพาะเจ้าของร้าน) */
   canCreate?: boolean;
   /** แก้ไข ระงับ และลบพนักงานได้ (staff.manage) */
@@ -29,20 +42,19 @@ interface StaffWorkspaceProps {
 }
 
 /**
- * พื้นที่ทำงานของหน้าพนักงาน (client เพราะมีฟอร์ม ตารางสิทธิ์ และการยืนยัน)
- * สถานะเก็บในหน้านี้ก่อน เมื่อมี API ให้เรียกบันทึกที่ handler แต่ละตัว
+ * พื้นที่ทำงานของหน้าพนักงาน (ไม่ดึงข้อมูลเอง รับข้อมูลและ actions จาก StaffWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้)
  * สิทธิ์ที่กำลังแก้เก็บเป็น draft แยกตามบทบาท จนกว่าจะกดบันทึก
  */
-export function StaffWorkspace({
-  initialStaff,
-  initialRoles,
+export function StaffView({
+  staff,
+  roles,
+  updatedAt,
+  actions,
   canCreate = true,
   canManage = true,
   canResetPassword = true,
   canEditRoles = true,
-}: StaffWorkspaceProps) {
-  const [staff, setStaff] = useState(initialStaff);
-  const [roles, setRoles] = useState(initialRoles);
+}: StaffViewProps) {
   const [tab, setTab] = useState<StaffTab>("members");
   const [query, setQuery] = useState("");
   const [selectedRoleId, setSelectedRoleId] = useState(OWNER_ROLE_ID);
@@ -75,72 +87,27 @@ export function StaffWorkspace({
     (member) => member.status === "active" && member.mustChangePassword,
   ).length;
 
-  function submitMember({ password, ...values }: MemberValues) {
-    if (memberTarget === "new") {
-      // เมื่อมี API ให้ส่ง password ไปสร้างบัญชี (เซิร์ฟเวอร์เก็บแบบแฮชเท่านั้น) ห้ามเก็บรหัสผ่านไว้ฝั่งหน้าเว็บ
-      void password;
-      setStaff((prev) => [
-        ...prev,
-        {
-          id: `s-${Date.now()}`,
-          ...values,
-          status: "active",
-          mustChangePassword: true,
-          lastActive: "ยังไม่เคยเข้าสู่ระบบ",
-        },
-      ]);
-      notify.success(
-        `สร้างบัญชีของ ${values.name} แล้ว`,
-        `แจ้งชื่อผู้ใช้ @${values.username} และรหัสผ่านให้พนักงานโดยตรง`,
-      );
-    } else if (memberTarget) {
-      const id = memberTarget.id;
-      setStaff((prev) =>
-        prev.map((member) =>
-          member.id === id ? { ...member, ...values } : member,
-        ),
-      );
-      notify.success(`บันทึกข้อมูล ${values.name} แล้ว`);
-    }
-    setMemberTarget(null);
+  async function submitMember(values: MemberValues) {
+    const ok =
+      memberTarget === "new"
+        ? await actions.createMember(values)
+        : memberTarget
+          ? await actions.updateMember(memberTarget.id, values)
+          : false;
+    if (ok) setMemberTarget(null);
   }
 
-  function resetPassword(member: StaffMember, password: string) {
-    // เมื่อมี API ให้ส่ง password ไปรีเซ็ตที่เซิร์ฟเวอร์ ห้ามเก็บรหัสผ่านไว้ฝั่งหน้าเว็บ
-    void password;
-    setStaff((prev) =>
-      prev.map((item) =>
-        item.id === member.id ? { ...item, mustChangePassword: true } : item,
-      ),
-    );
-    setResetTarget(null);
-    notify.success(
-      `รีเซ็ตรหัสผ่านของ ${member.name} แล้ว`,
-      "แจ้งรหัสผ่านใหม่ให้พนักงานโดยตรง พนักงานต้องเปลี่ยนรหัสเองเมื่อเข้าสู่ระบบ",
-    );
+  async function resetPassword(member: StaffMember, password: string) {
+    if (await actions.resetPassword(member, password)) setResetTarget(null);
   }
 
   function toggleSuspend(member: StaffMember) {
-    const suspend = member.status !== "suspended";
-    setStaff((prev) =>
-      prev.map((item) =>
-        item.id === member.id
-          ? { ...item, status: suspend ? "suspended" : "active" }
-          : item,
-      ),
-    );
-    notify.success(
-      suspend
-        ? `ระงับ ${member.name} แล้ว`
-        : `เปิดใช้งาน ${member.name} อีกครั้งแล้ว`,
-      suspend ? "เข้าสู่ระบบไม่ได้จนกว่าจะเปิดใช้งานอีกครั้ง" : undefined,
-    );
+    void actions.setSuspended(member, member.status !== "suspended");
   }
 
   function confirmRemove() {
     if (!pendingRemove) return;
-    setStaff((prev) => prev.filter((member) => member.id !== pendingRemove.id));
-    notify.success(`ลบ ${pendingRemove.name} ออกจากทีมแล้ว`);
+    void actions.removeMember(pendingRemove);
     setPendingRemove(null);
   }
 
@@ -162,50 +129,33 @@ export function StaffWorkspace({
     });
   }
 
-  function saveRole(roleId: string) {
+  async function saveRole(roleId: string) {
     const permissions = drafts[roleId];
-    if (!permissions) return;
     const role = roles.find((item) => item.id === roleId);
-    setRoles((prev) =>
-      prev.map((item) =>
-        item.id === roleId ? { ...item, permissions } : item,
-      ),
-    );
-    discardDraft(roleId);
-    const count = staff.filter((member) => member.roleId === roleId).length;
-    notify.success(
-      `บันทึกสิทธิ์ของ ${role?.name} แล้ว`,
-      `มีผลกับ ${count} คนทันที`,
-    );
+    if (!permissions || !role) return;
+    if (await actions.saveRole(role, permissions)) discardDraft(roleId);
   }
 
-  function createRole(values: {
-    name: string;
-    description: string;
-    copyFrom: string;
-  }) {
+  async function createRole(values: { name: string; description: string; copyFrom: string }) {
     const source = roles.find((role) => role.id === values.copyFrom);
-    const role: Role = {
-      id: `role-${Date.now()}`,
+    const role = await actions.createRole({
       name: values.name,
       description: values.description,
-      builtin: false,
-      locked: false,
       permissions: source ? [...source.permissions] : [],
-    };
-    setRoles((prev) => [...prev, role]);
+    });
+    if (!role) return;
     setSelectedRoleId(role.id);
     setRoleDialogOpen(false);
-    notify.success(`สร้างบทบาท ${role.name} แล้ว`, "เลือกสิทธิ์ในตารางด้านขวา");
   }
 
-  function confirmDeleteRole() {
+  async function confirmDeleteRole() {
     if (!pendingDeleteRole) return;
-    setRoles((prev) => prev.filter((role) => role.id !== pendingDeleteRole.id));
-    discardDraft(pendingDeleteRole.id);
-    setSelectedRoleId(OWNER_ROLE_ID);
-    notify.success(`ลบบทบาท ${pendingDeleteRole.name} แล้ว`);
+    const role = pendingDeleteRole;
     setPendingDeleteRole(null);
+    if (await actions.deleteRole(role)) {
+      discardDraft(role.id);
+      setSelectedRoleId(OWNER_ROLE_ID);
+    }
   }
 
   return (
@@ -303,7 +253,7 @@ export function StaffWorkspace({
 
       <p className="text-muted-foreground flex items-start gap-2 text-xs">
         <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
-        อัปเดตล่าสุด {UPDATED_AT} • เมื่อเปลี่ยนสิทธิ์ของบทบาท
+        อัปเดตล่าสุด {updatedAt} • เมื่อเปลี่ยนสิทธิ์ของบทบาท
         พนักงานทุกคนในบทบาทนั้นจะเห็นเมนูและปุ่มตามสิทธิ์ใหม่ทันที
       </p>
 
@@ -350,7 +300,7 @@ export function StaffWorkspace({
         }
         confirmLabel="ลบบทบาท"
         tone="danger"
-        onConfirm={confirmDeleteRole}
+        onConfirm={() => void confirmDeleteRole()}
         onCancel={() => setPendingDeleteRole(null)}
       />
     </div>

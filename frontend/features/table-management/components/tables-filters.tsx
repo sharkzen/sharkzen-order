@@ -1,7 +1,7 @@
 import { Search } from "lucide-react";
-import { Card, FilterField, FilterSelect, Input } from "@/components/ui";
-import { STATUS_OPTIONS } from "../lib/table-utils";
-import type { StatusFilter } from "../types";
+import { Card, FilterField, Select, Input } from "@/components/ui";
+import { STATUS_OPTIONS } from "@/features/table-management/lib/table-utils";
+import type { StatusFilter } from "@/features/table-management/types";
 
 interface TablesFiltersProps {
   query: string;
@@ -50,20 +50,22 @@ export function TablesFilters({
       </div>
 
       <FilterField label="โซน" htmlFor="table-zone">
-        <FilterSelect
+        <Select
+          size="lg"
           id="table-zone"
           value={zone}
           options={zoneOptions}
-          onChange={(e) => onZoneChange(e.target.value)}
+          onChange={(v) => onZoneChange(v)}
         />
       </FilterField>
 
       <FilterField label="สถานะ" htmlFor="table-status">
-        <FilterSelect
+        <Select
+          size="lg"
           id="table-status"
           value={status}
           options={STATUS_OPTIONS}
-          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
+          onChange={(v) => onStatusChange(v as StatusFilter)}
         />
       </FilterField>
     </Card>

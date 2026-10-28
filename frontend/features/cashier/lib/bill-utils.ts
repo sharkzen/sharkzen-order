@@ -4,7 +4,7 @@ import type {
   BillTotals,
   CheckoutConfig,
   TableBill,
-} from "../types";
+} from "@/features/cashier/types";
 
 export function roundTotal(round: BillRound) {
   return round.lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0);
@@ -44,6 +44,12 @@ export function calculateTotals(
     dishCount: dishCount(rounds),
   };
 }
+
+/** โต๊ะที่ต้องเก็บเงิน: มีออเดอร์ และยังไม่ได้ชำระ */
+export const isDue = (bill: TableBill) => !bill.payment && bill.rounds.length > 0;
+
+/** โต๊ะที่เปิดไว้แต่ยังไม่มีใครสั่ง (ไม่มีอะไรให้เก็บเงิน ปิดโต๊ะได้เลย) */
+export const isEmptyTable = (bill: TableBill) => bill.rounds.length === 0;
 
 /** จำนวนรอบที่ครัวยังไม่เสิร์ฟ ใช้เตือนแคชเชียร์ก่อนรับเงิน */
 export function unservedCount(bill: TableBill) {

@@ -3,8 +3,8 @@
 import { Copy, Printer } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
 import { notify } from "@/lib/toast";
-import { tableLink } from "../lib/table-utils";
-import type { DiningTable } from "../types";
+import { tableLink } from "@/features/table-management/lib/table-utils";
+import type { DiningTable } from "@/features/table-management/types";
 import { QrCode } from "./qr-code";
 
 interface QrDialogProps {

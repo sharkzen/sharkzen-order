@@ -4,7 +4,7 @@ import { Dices } from "lucide-react";
 import { PasswordInput } from "@/features/auth/components/password-input";
 import { PasswordStrengthMeter } from "@/features/auth/components/password-strength-meter";
 import { Button, FormField } from "@/components/ui";
-import { generatePassword } from "../lib/password";
+import { generatePassword } from "@/features/staff-management/lib/password";
 
 interface PasswordFieldProps {
   id: string;

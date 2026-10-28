@@ -6,7 +6,7 @@ import { ArrowLeft, MailCheck } from "lucide-react";
 import { Button, FormField, Input } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { notify } from "@/lib/toast";
-import { authApi } from "../lib/auth-api";
+import { authApi } from "@/features/auth/lib/auth-api";
 
 const RESEND_SECONDS = 60;
 

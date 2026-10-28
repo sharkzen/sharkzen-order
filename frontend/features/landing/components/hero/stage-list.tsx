@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { DEMO_STAGES } from "../../data";
+import { DEMO_STAGES } from "@/features/landing/data";
 
 interface StageListProps {
   current: number;

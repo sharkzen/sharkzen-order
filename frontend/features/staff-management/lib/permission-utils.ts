@@ -1,5 +1,5 @@
-import { RESOURCES } from "../data/permissions";
-import type { PermissionKey, ResourceDef, Role } from "../types";
+import { RESOURCES } from "@/features/staff-management/data/permissions";
+import type { PermissionKey, ResourceDef, Role } from "@/features/staff-management/types";
 
 export const permissionKey = (resource: ResourceDef, actionId: string) =>
   `${resource.id}.${actionId}`;

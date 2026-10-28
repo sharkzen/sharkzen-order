@@ -3,21 +3,25 @@ import type {
   OrderItem,
   PaymentFilter,
   StatusFilter,
-} from "../types";
+} from "@/features/order-management/types";
 
 export const PAGE_SIZE = 10;
 
 /** "ต้มยำกุ้งน้ำข้น × 2, ผัดไทยกุ้งสด" */
 export function summarizeItems(items: OrderItem[]) {
   return items
-    .map(({ name, quantity }) =>
-      quantity > 1 ? `${name} × ${quantity}` : name,
-    )
+    .map(({ name, options, quantity, cancelledQty }) => ({
+      name: options.length ? `${name} (${options.map((option) => option.name).join(", ")})` : name,
+      left: quantity - cancelledQty,
+    }))
+    .filter(({ left }) => left > 0)
+    .map(({ name, left }) => (left > 1 ? `${name} × ${left}` : name))
     .join(", ");
 }
 
+/** จำนวนจานที่ยังเหลือ (ไม่นับที่ยกเลิกแล้ว) */
 export function countItems(items: OrderItem[]) {
-  return items.reduce((sum, { quantity }) => sum + quantity, 0);
+  return items.reduce((sum, { quantity, cancelledQty }) => sum + quantity - cancelledQty, 0);
 }
 
 interface Filters {
@@ -36,8 +40,8 @@ export function filterOrders(orders: ManagedOrder[], filters: Filters) {
       return false;
     if (!query) return true;
     return (
-      order.id.toLowerCase().replace("#", "").includes(query) ||
-      order.table.includes(query) ||
+      order.code.toLowerCase().replace("#", "").includes(query) ||
+      order.table.toLowerCase().includes(query) ||
       order.items.some(({ name }) => name.toLowerCase().includes(query))
     );
   });

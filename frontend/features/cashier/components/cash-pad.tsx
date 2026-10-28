@@ -5,7 +5,7 @@ import { Delete } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatNumber } from "@/features/dashboard/lib/format";
 import { cn } from "@/lib/cn";
-import { cashShortcuts } from "../lib/bill-utils";
+import { cashShortcuts } from "@/features/cashier/lib/bill-utils";
 
 interface CashPadProps {
   total: number;

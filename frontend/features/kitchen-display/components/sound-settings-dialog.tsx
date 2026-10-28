@@ -9,8 +9,8 @@ import {
   TONE_GROUPS,
   playAlert,
   type AlertTone,
-} from "../lib/sound";
-import type { SoundSettings } from "../lib/sound-settings";
+} from "@/features/kitchen-display/lib/sound";
+import type { SoundSettings } from "@/features/kitchen-display/lib/sound-settings";
 
 interface SoundSettingsDialogProps {
   open: boolean;
@@ -58,9 +58,9 @@ interface TonePickerProps {
 }
 
 /** รายการเสียงเรียกแบ่งตามกลุ่ม แตะเพื่อเลือก (เล่นเสียงตัวอย่างให้ทันที) หรือกดปุ่มลูกศรเพื่อฟังเฉยๆ */
-function TonePicker({ name, value, volume, onSelect }: TonePickerProps) {
+export function TonePicker({ name, value, volume, onSelect }: TonePickerProps) {
   return (
-    <div className="scroll-thin border-border flex max-h-[230px] flex-col gap-4 overflow-y-auto rounded-lg border p-3">
+    <div className="flex flex-col gap-4">
       {TONE_GROUPS.map((group) => (
         <div key={group.value} className="flex flex-col gap-2">
           <p className="text-muted-foreground text-xs">
@@ -142,9 +142,10 @@ export function SoundSettingsDialog({
       open={open}
       title="ตั้งค่าเสียงแจ้งเตือน"
       onClose={onClose}
-      className="w-[min(94vw,560px)]"
+      // หัว / เนื้อหาที่เลื่อนได้ / ท้าย: แถบเลื่อนเดียว ปุ่มเสร็จสิ้นอยู่ในจอเสมอ
+      className="h-[min(92dvh,780px)] w-[min(94vw,560px)] flex-col overflow-hidden open:flex"
     >
-      <div className="border-border border-b px-5 pt-5 pr-14 pb-4">
+      <div className="border-border shrink-0 border-b px-5 pt-5 pr-14 pb-4">
         <p aria-hidden className="font-display text-lg font-semibold">
           ตั้งค่าเสียงแจ้งเตือน
         </p>
@@ -153,7 +154,7 @@ export function SoundSettingsDialog({
         </p>
       </div>
 
-      <div className="flex flex-col gap-5 p-5">
+      <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-5">
         <Row
           title="เสียงแจ้งเตือน"
           description={
@@ -298,33 +299,32 @@ export function SoundSettingsDialog({
         </div>
 
         <div className="bg-background flex flex-col gap-3 rounded-lg px-4 py-3">
-          <p className="text-foreground text-sm font-semibold">ทดสอบระบบ</p>
+          <p className="text-foreground text-sm font-semibold">ทดสอบเสียง</p>
           <div className="flex items-center justify-between gap-4">
             <p className="text-muted-foreground text-xs">
-              จำลองออเดอร์ใหม่เข้ามา 1 รายการ จะมีเสียง “
-              {toneLabel(settings.tone)}”
+              ฟังเสียงเมื่อมีออเดอร์ใหม่ “{toneLabel(settings.tone)}”
             </p>
             <Button variant="outline" size="sm" onClick={onSimulate}>
               <FlaskConical className="size-4" aria-hidden />
-              ออเดอร์ใหม่
+              ทดสอบเสียง
             </Button>
           </div>
           <div className="flex items-center justify-between gap-4">
             <p className="text-muted-foreground text-xs">
-              จำลองหน้าร้านยกเลิกงานที่กำลังทำอยู่ เพื่อดูการ์ดแจ้งให้ครัวหยุดทำ
+              ฟังเสียงเมื่อหน้าร้านยกเลิกงาน
               {settings.cancelEnabled
-                ? ` จะมีเสียง “${toneLabel(settings.cancelTone)}”`
+                ? ` “${toneLabel(settings.cancelTone)}”`
                 : " (ปิดเสียงอยู่)"}
             </p>
             <Button variant="outline" size="sm" onClick={onSimulateFrontCancel}>
               <FlaskConical className="size-4" aria-hidden />
-              หน้าร้านยกเลิก
+              ทดสอบเสียง
             </Button>
           </div>
         </div>
       </div>
 
-      <div className="border-border flex justify-end border-t px-5 py-3.5">
+      <div className="border-border flex shrink-0 justify-end border-t px-5 py-3.5">
         <Button onClick={onClose}>เสร็จสิ้น</Button>
       </div>
     </Dialog>

@@ -2,9 +2,9 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Dialog, FormField, Input, Select } from "@/components/ui";
-import { accessibleResources } from "../lib/permission-utils";
-import { USERNAME_PATTERN, checkPassword } from "../lib/password";
-import type { Role, StaffMember } from "../types";
+import { accessibleResources } from "@/features/staff-management/lib/permission-utils";
+import { USERNAME_PATTERN, checkPassword } from "@/features/staff-management/lib/password";
+import type { Role, StaffMember } from "@/features/staff-management/types";
 import { PasswordField } from "./password-field";
 
 export interface MemberValues {
@@ -21,7 +21,7 @@ interface MemberDialogProps {
   roles: Role[];
   members: StaffMember[];
   onClose: () => void;
-  onSubmit: (values: MemberValues) => void;
+  onSubmit: (values: MemberValues) => void | Promise<unknown>;
 }
 
 /** ฟอร์มสร้าง/แก้ไขบัญชีพนักงาน เลือกบทบาทแล้วเห็นทันทีว่าบทบาทนั้นเข้าหน้าไหนได้บ้าง */
@@ -152,7 +152,7 @@ function MemberForm({
           <Select
             id="member-role"
             value={roleId}
-            onChange={(e) => setRoleId(e.target.value)}
+            onChange={setRoleId}
             options={assignable.map((item) => ({
               value: item.id,
               label: item.name,

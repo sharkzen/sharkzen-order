@@ -1,5 +1,5 @@
 import { cn } from "@/lib/cn";
-import { KITCHEN_CANCEL_REASONS } from "../lib/kitchen-utils";
+import { KITCHEN_CANCEL_REASONS } from "@/features/kitchen-display/lib/kitchen-utils";
 
 interface ReasonPickerProps {
   value: string;

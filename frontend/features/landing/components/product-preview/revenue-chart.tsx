@@ -7,7 +7,7 @@ import {
   REVENUE_BARS,
   REVENUE_PEAK_INDEX,
   REVENUE_TIME_LABELS,
-} from "../../data";
+} from "@/features/landing/data";
 
 export function RevenueChart() {
   return (

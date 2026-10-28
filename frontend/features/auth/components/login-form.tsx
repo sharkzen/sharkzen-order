@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 import { toApiError } from "@/lib/http/api-error";
 import { notify } from "@/lib/toast";
-import { authApi } from "../lib/auth-api";
+import { authApi } from "@/features/auth/lib/auth-api";
 import { OtpStep } from "./otp-step";
 import { PasswordInput } from "./password-input";
 
@@ -83,8 +83,17 @@ export function LoginForm() {
             required
           />
         </FormField>
-        <div className="flex items-center justify-between gap-3">
-          <Checkbox name="remember" label="จดจำฉันไว้ในอุปกรณ์นี้" />
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+          <Checkbox
+            name="remember"
+            label={
+              <span className="flex flex-col gap-0.5">
+                <span className="text-foreground font-medium">
+                  จดจำฉันไว้ในอุปกรณ์นี้
+                </span>
+              </span>
+            }
+          />
           <Link
             href={ROUTES.forgotPassword}
             className="text-primary-strong text-sm font-semibold underline-offset-2 hover:underline"

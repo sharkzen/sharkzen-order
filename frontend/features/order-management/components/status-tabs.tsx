@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
-import { STATUS_TABS } from "../lib/labels";
-import type { StatusFilter } from "../types";
+import { STATUS_TABS } from "@/features/order-management/lib/labels";
+import type { StatusFilter } from "@/features/order-management/types";
 
 interface StatusTabsProps {
   value: StatusFilter;

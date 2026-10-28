@@ -1,4 +1,4 @@
-import type { SettingsErrors, ShopSettings } from "../types";
+import type { SettingsErrors, ShopSettings } from "@/features/shop-settings/types";
 
 const digits = (value: string) => value.replace(/\D/g, "");
 
@@ -18,6 +18,9 @@ export function validateSettings(values: ShopSettings): SettingsErrors {
     if (!id) errors.promptPayId = "กรอกเลขพร้อมเพย์เพื่อรับโอนเงิน";
     else if (id.length !== 10 && id.length !== 13)
       errors.promptPayId = "ใช้เบอร์โทร 10 หลัก หรือเลขประจำตัว 13 หลัก";
+
+    if (!values.promptPayTitle || !values.promptPayFirstName.trim() || !values.promptPayLastName.trim())
+      errors.promptPayName = "เลือกคำนำหน้า และกรอกชื่อ-นามสกุลเจ้าของบัญชี";
   }
 
   if (!values.acceptTransfer && !values.acceptCash && !values.acceptCounter) {

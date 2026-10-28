@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { SIDEBAR_NAV } from "../../data/navigation";
+import { useShop } from "@/features/shop/components/shop-provider";
+import { ROUTES } from "@/constants/routes";
+import { SIDEBAR_NAV } from "@/features/dashboard/data/navigation";
 
 /**
  * รายการเมนูหลัก ไฮไลต์หน้าปัจจุบันตาม URL (client เพราะต้องอ่าน pathname)
@@ -11,11 +13,14 @@ import { SIDEBAR_NAV } from "../../data/navigation";
  */
 export function SidebarNav() {
   const pathname = usePathname();
+  const { newOrders } = useShop();
 
   return (
     <nav aria-label="การจัดการร้าน" className="flex flex-col gap-1.5">
       <p className="text-muted-foreground text-[11px]">การจัดการร้าน</p>
-      {SIDEBAR_NAV.map(({ label, href, icon: Icon, count }) => {
+      {SIDEBAR_NAV.map(({ label, href, icon: Icon }) => {
+        // ตัวเลขที่เมนูคำสั่งซื้อ = ออเดอร์ใหม่ที่ยังไม่มีใครรับ (อัปเดตสด)
+        const count = href === ROUTES.orders && newOrders > 0 ? newOrders : undefined;
         const active = pathname === href || pathname.startsWith(`${href}/`);
         return (
           <Link

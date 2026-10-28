@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, m } from "framer-motion";
 import { PhonePanel } from "@/features/landing/components/hero/phone-panel";
 import { DEMO_TABLE } from "@/features/landing/data";
-import type { AuthMode } from "../lib/auth-mode";
+import type { AuthMode } from "@/features/auth/lib/auth-mode";
 import { QrArt } from "./qr-art";
 
 const COPY = {

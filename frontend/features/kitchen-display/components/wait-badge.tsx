@@ -1,6 +1,6 @@
 import { Clock, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui";
-import type { KitchenStatus } from "../types";
+import type { KitchenStatus } from "@/features/kitchen-display/types";
 
 interface WaitBadgeProps {
   status: KitchenStatus;

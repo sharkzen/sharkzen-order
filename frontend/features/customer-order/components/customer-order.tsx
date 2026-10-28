@@ -1,0 +1,452 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import {
+  Armchair,
+  BellRing,
+  CircleCheck,
+  CircleOff,
+  Info,
+  ScanLine,
+  X,
+  Search,
+  ShoppingBasket,
+  TriangleAlert,
+} from "lucide-react";
+import { Badge, Button, Spinner } from "@/components/ui";
+import { siteConfig } from "@/config/site";
+import { cn } from "@/lib/cn";
+import { toApiError } from "@/lib/http/api-error";
+import { notify } from "@/lib/toast";
+import {
+  customerApi,
+  type CustomerMenu,
+  type CustomerMenuItem,
+  type CustomerOrder as Order,
+} from "@/features/customer-order/lib/customer-api";
+import { resolveLines, setLineQuantity, upsertLine, type CartLine } from "@/features/customer-order/lib/cart";
+import { baht } from "@/features/customer-order/lib/format";
+import { CartPanel } from "./cart-panel";
+import { OptionSheet } from "./option-sheet";
+import { CartPage } from "./cart-page";
+import { ClosedDialog } from "./closed-dialog";
+import { MenuCard } from "./menu-card";
+import { CallStaffDialog } from "./call-staff-dialog";
+import { CustomerNav } from "./customer-nav";
+
+const POLL_MS = 10_000;
+const DEFAULT_COVER = "/images/customer/hero.png";
+
+type LoadError = "invalid" | "failed";
+
+/** หน้าสั่งอาหารของลูกค้า: เปิดจาก QR ที่โต๊ะ ร้านและโต๊ะมาจาก token ใน URL */
+export function CustomerOrder({ token }: { token: string }) {
+  const router = useRouter();
+  const [menu, setMenu] = useState<CustomerMenu>();
+  const [error, setError] = useState<LoadError | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [cart, setCart] = useState<CartLine[]>([]);
+  /** เมนูที่กำลังเลือกตัวเลือก */
+  const [optionItem, setOptionItem] = useState<CustomerMenuItem | null>(null);
+  const [note, setNote] = useState("");
+  const [cartOpen, setCartOpen] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
+  const [calling, setCalling] = useState(false);
+  const [closedOpen, setClosedOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("");
+  const [chipsAtEnd, setChipsAtEnd] = useState(false);
+  const wasOrderable = useRef<boolean | null>(null);
+  const cartKey = `cart:${token.slice(0, 24)}`;
+
+  const refresh = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const [nextMenu, nextOrders] = await Promise.all([
+          customerApi.menu(token, signal),
+          customerApi.orders(token, signal),
+        ]);
+        // ถ้าสั่งได้อยู่แล้วกลายเป็นสั่งไม่ได้ (พนักงานปิดโต๊ะ/ร้านปิดรับ) แจ้งทันที
+        if (wasOrderable.current !== false && !nextMenu.canOrder) setClosedOpen(true);
+        wasOrderable.current = nextMenu.canOrder;
+        setMenu(nextMenu);
+        setOrders(nextOrders);
+        setError(null);
+      } catch (e) {
+        if (signal?.aborted) return;
+        setError((current) => (toApiError(e).status === 404 ? "invalid" : (current ?? "failed")));
+      }
+    },
+    [token],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void refresh(controller.signal);
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void refresh(controller.signal);
+    }, POLL_MS);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+    };
+  }, [refresh]);
+
+  // ตะกร้าไม่หายเมื่อรีเฟรชหน้า (เก็บแยกตามโต๊ะ)
+  useEffect(() => {
+    try {
+      const saved: unknown = JSON.parse(sessionStorage.getItem(cartKey) ?? "[]");
+      if (Array.isArray(saved)) setCart(saved as CartLine[]);
+    } catch {}
+  }, [cartKey]);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(cartKey, JSON.stringify(cart));
+    } catch {}
+  }, [cart, cartKey]);
+
+  const visibleItems = useMemo(() => {
+    const text = query.trim().toLowerCase();
+    return (menu?.items ?? []).filter(
+      (item) =>
+        (!category || item.categoryId === category) &&
+        (!text || `${item.name} ${item.description}`.toLowerCase().includes(text)),
+    );
+  }, [menu, query, category]);
+
+  const lines = useMemo(() => resolveLines(menu?.items ?? [], cart), [menu, cart]);
+  const count = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const total = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+  const inCart = (itemId: string) =>
+    lines.filter((line) => line.item.id === itemId).reduce((sum, line) => sum + line.quantity, 0);
+  const inProgress = orders.filter((o) => o.status !== "SERVED" && o.status !== "CANCELLED").length;
+
+  /** เมนูที่ไม่มีตัวเลือก: ตั้งจำนวนตรงๆ */
+  function setSimple(itemId: string, quantity: number) {
+    setCart((current) => upsertLine(current, itemId, [], quantity, true));
+  }
+
+  function setLine(key: string, quantity: number) {
+    setCart((current) => setLineQuantity(current, key, quantity));
+  }
+
+  function setLineNote(key: string, note: string) {
+    setCart((current) => current.map((line) => (line.key === key ? { ...line, note } : line)));
+  }
+
+  function addWithOptions(item: CustomerMenuItem, optionIds: string[], quantity: number, note: string) {
+    setCart((current) => upsertLine(current, item.id, optionIds, quantity, false, note));
+    setOptionItem(null);
+  }
+
+  async function callStaff() {
+    setCalling(true);
+    try {
+      await customerApi.callStaff(token);
+      setCallOpen(false);
+      notify.success("เรียกพนักงานแล้ว", "พนักงานจะมาที่โต๊ะของคุณเร็วๆ นี้");
+    } catch (e) {
+      notify.error(e);
+    } finally {
+      setCalling(false);
+    }
+  }
+
+  async function submit() {
+    if (!lines.length || submitting) return;
+    setSubmitting(true);
+    try {
+      const placed = await customerApi.placeOrder(token, {
+        items: lines.map(({ item, optionIds, quantity, note: lineNote }) => ({
+          menuItemId: item.id,
+          quantity,
+          options: optionIds,
+          note: lineNote.trim(),
+        })),
+        notes: note.trim() ? [note.trim()] : [],
+      });
+      setCart([]);
+      setNote("");
+      setCartOpen(false);
+      notify.success(`ส่งออเดอร์ #${placed.number} เข้าครัวแล้ว`);
+      router.push(`/t/${token}/orders`);
+    } catch (e) {
+      const { code } = toApiError(e);
+      if (code === "SHOP_CLOSED" || code === "TABLE_CLOSED") {
+        setCartOpen(false);
+        setClosedOpen(true);
+        await refresh();
+      } else {
+        notify.error(e);
+        if (code === "MENU_UNAVAILABLE" || code === "MENU_NOT_FOUND") await refresh();
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (error && !menu) {
+    return (
+      <Notice
+        icon={error === "invalid" ? <ScanLine className="size-7" /> : <TriangleAlert className="size-7" />}
+        title={error === "invalid" ? "QR นี้ใช้ไม่ได้" : "เปิดเมนูไม่สำเร็จ"}
+        body={
+          error === "invalid"
+            ? "ไม่พบโต๊ะจากลิงก์นี้ ลองสแกน QR ที่โต๊ะใหม่อีกครั้ง หรือเรียกพนักงาน"
+            : "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"
+        }
+        action={error === "failed" ? <Button onClick={() => void refresh()}>ลองใหม่</Button> : undefined}
+      />
+    );
+  }
+
+  if (!menu) {
+    return (
+      <div role="status" aria-label="กำลังโหลดเมนู" className="flex min-h-dvh items-center justify-center">
+        <Spinner className="text-primary size-8" />
+      </div>
+    );
+  }
+
+  const status =
+    menu.blocked === "SHOP_CLOSED"
+      ? { tone: "danger" as const, label: "ปิดรับออเดอร์", icon: CircleOff }
+      : menu.blocked === "TABLE_CLOSED"
+        ? { tone: "warning" as const, label: "โต๊ะยังไม่เปิด", icon: TriangleAlert }
+        : { tone: "success" as const, label: "เปิดอยู่", icon: CircleCheck };
+  const StatusIcon = status.icon;
+  const available = menu.items.filter((item) => item.available).length;
+  const info = [menu.shop.branch, menu.table.zone, menu.shop.hours && `วันนี้ ${menu.shop.hours}`]
+    .filter(Boolean)
+    .join(" • ");
+  const cover = menu.shop.coverImage || DEFAULT_COVER;
+  const cartProps = { lines, total, note, submitting, onNote: setNote, onChange: setLine, onLineNote: setLineNote, onSubmit: submit };
+
+  return (
+    <div className="min-h-dvh pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <header className="bg-surface border-border border-b">
+        <div className="mx-auto flex h-16 max-w-6xl items-center px-4 md:px-6">
+          <div className="flex items-center gap-2.5">
+            <Image src="/images/logo.svg" alt="" width={32} height={32} unoptimized className="shrink-0" />
+            <span className="font-display text-foreground text-[15px] font-semibold tracking-wide">
+              {siteConfig.name}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-6xl md:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
+        <div className="min-w-0">
+          <div className="relative aspect-[5/2] w-full overflow-hidden md:mt-6 md:rounded-2xl">
+            <Image
+              src={cover}
+              alt=""
+              fill
+              priority
+              unoptimized={cover !== DEFAULT_COVER}
+              sizes="(min-width: 1152px) 800px, 100vw"
+              className="object-cover"
+            />
+            <div className="from-foreground/45 pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t to-transparent" />
+            <div className="bg-surface shadow-card absolute bottom-3 left-4 flex items-center gap-2 rounded-xl px-3.5 py-2 md:bottom-4 md:left-5">
+              <Armchair className="text-primary-strong size-[18px]" aria-hidden />
+              <p className="font-display text-foreground text-lg leading-tight">{menu.table.name}</p>
+              <span className="text-muted-foreground text-xs">{menu.table.zone}</span>
+            </div>
+          </div>
+
+          <section className="bg-surface border-border flex flex-col gap-3 border-b p-5 md:mt-4 md:rounded-2xl md:border">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <h1 className="font-display text-foreground text-[26px] leading-tight md:text-3xl">{menu.shop.name}</h1>
+              <Badge tone={status.tone} className="shrink-0">
+                <StatusIcon className="size-[13px]" aria-hidden />
+                {status.label}
+              </Badge>
+            </div>
+            {info && <p className="text-muted-foreground text-sm leading-relaxed">{info}</p>}
+            {menu.canOrder ? (
+              <p className="bg-primary-soft text-primary-strong flex items-center gap-2 rounded-lg px-3 py-2.5 text-[13px] leading-relaxed">
+                <Info className="size-4 shrink-0" aria-hidden />
+                เลือกเมนูที่ชอบ แล้วส่งออเดอร์จากตะกร้าได้เลย
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setClosedOpen(true)}
+                className="bg-warning-soft text-warning-strong flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-left text-[13px] leading-relaxed font-medium"
+              >
+                <TriangleAlert className="size-4 shrink-0" aria-hidden />
+                ตอนนี้ยังสั่งอาหารไม่ได้ กรุณาเรียกพนักงาน
+              </button>
+            )}
+            <Button variant="outline" onClick={() => setCallOpen(true)}>
+              <BellRing className="size-[18px]" aria-hidden />
+              เรียกพนักงาน
+            </Button>
+          </section>
+
+          <div className="bg-background/95 sticky top-0 z-10 flex flex-col gap-3 px-4 pt-4 pb-3 backdrop-blur md:px-0">
+            <div className="border-border bg-surface focus-within:border-primary focus-within:ring-primary/20 flex h-12 items-center gap-3 rounded-xl border px-4 transition-shadow focus-within:ring-4">
+              <Search className="text-muted-foreground size-[18px] shrink-0" aria-hidden />
+              <input
+                type="text"
+                inputMode="search"
+                enterKeyHint="search"
+                aria-label="ค้นหาเมนู"
+                placeholder="ค้นหาเมนู"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="text-foreground placeholder:text-muted-foreground min-w-0 flex-1 bg-transparent text-[15px] outline-none"
+              />
+              {query && (
+                <button
+                  type="button"
+                  aria-label="ล้างคำค้นหา"
+                  onClick={() => setQuery("")}
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground -mr-2 flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full transition-colors"
+                >
+                  <X className="size-4" aria-hidden />
+                </button>
+              )}
+            </div>
+            {menu.categories.length > 0 && (
+              <div
+                role="group"
+                aria-label="หมวดเมนู"
+                data-at-end={chipsAtEnd}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  setChipsAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4);
+                }}
+                className="chip-row -mx-4 px-4 md:mx-0 md:px-0"
+              >
+                {[{ id: "", name: "ทั้งหมด" }, ...menu.categories].map(({ id, name }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={category === id}
+                    onClick={(e) => {
+                      setCategory(id);
+                      e.currentTarget.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+                    }}
+                    className={cn(
+                      "focus-visible:ring-primary/50 h-9 shrink-0 cursor-pointer rounded-full border px-4 text-[13px] font-medium whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                      category === id
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-border bg-surface text-muted-foreground hover:bg-primary-soft hover:text-primary-strong",
+                    )}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <main className={cn("flex flex-col gap-4 px-4 pt-3 md:px-0", "pb-28")}>
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-display text-foreground text-xl">เลือกความอร่อย</h2>
+              <p className="text-muted-foreground text-xs">{available} เมนูพร้อมเสิร์ฟ</p>
+            </div>
+            {visibleItems.length === 0 ? (
+              <p className="text-muted-foreground py-16 text-center text-sm">
+                {menu.items.length === 0
+                  ? "ร้านยังไม่มีเมนูให้สั่งในตอนนี้"
+                  : "ไม่พบเมนูที่ค้นหา ลองคำอื่นหรือเลือกหมวดอื่น"}
+              </p>
+            ) : (
+              <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
+                {visibleItems.map((item) => (
+                  <MenuCard
+                    key={item.id}
+                    item={item}
+                    quantity={inCart(item.id)}
+                    canOrder={menu.canOrder}
+                    onChange={(q) => setSimple(item.id, q)}
+                    onChoose={() => setOptionItem(item)}
+                    onBlocked={() => setClosedOpen(true)}
+                  />
+                ))}
+              </ul>
+            )}
+            <p className="text-muted-foreground pt-6 text-center text-xs">สั่งอาหารด้วย {siteConfig.name}</p>
+          </main>
+        </div>
+
+        <aside
+          aria-label="ตะกร้าของโต๊ะ"
+          className="bg-surface border-border shadow-card sticky top-6 mt-6 hidden max-h-[calc(100dvh-3rem)] flex-col gap-4 overflow-y-auto rounded-2xl border p-5 lg:flex"
+        >
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-foreground text-xl">ตะกร้าของ{menu.table.name}</h2>
+            {count > 0 && <span className="text-muted-foreground text-xs">{count} รายการ</span>}
+          </div>
+          <CartPanel {...cartProps} />
+        </aside>
+      </div>
+
+      {count > 0 && (
+        <button
+          type="button"
+          onClick={() => (menu.canOrder ? setCartOpen(true) : setClosedOpen(true))}
+          aria-label={`ตะกร้า ${count} รายการ ${baht(total)}`}
+          className="bg-primary text-primary-foreground hover:bg-primary-strong shadow-float focus-visible:ring-primary/50 fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+1rem)] z-30 flex h-14 cursor-pointer items-center gap-3 rounded-full pr-5 pl-4 font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none lg:hidden"
+        >
+          <span className="relative">
+            <ShoppingBasket className="size-6" aria-hidden />
+            <span className="bg-surface text-primary-strong absolute -top-2 -right-2.5 flex size-5 items-center justify-center rounded-full text-[11px] font-bold tabular-nums">
+              {count}
+            </span>
+          </span>
+          <span className="tabular-nums">{baht(total)}</span>
+        </button>
+      )}
+
+      <CustomerNav token={token} active="menu" inProgress={inProgress} />
+
+      <OptionSheet item={optionItem} onAdd={addWithOptions} onClose={() => setOptionItem(null)} />
+      <CartPage open={cartOpen} tableName={menu.table.name} onClose={() => setCartOpen(false)} {...cartProps} />
+      <CallStaffDialog
+        open={callOpen}
+        tableName={menu.table.name}
+        loading={calling}
+        onConfirm={() => void callStaff()}
+        onClose={() => setCallOpen(false)}
+      />
+      <ClosedDialog
+        open={closedOpen}
+        reason={menu.blocked}
+        tableName={menu.table.name}
+        onClose={() => setClosedOpen(false)}
+      />
+    </div>
+  );
+}
+
+function Notice({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mx-auto flex min-h-dvh max-w-sm flex-col items-center justify-center gap-4 px-6 text-center">
+      <span className="bg-warning-soft text-warning-strong flex size-14 items-center justify-center rounded-full">
+        {icon}
+      </span>
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-display text-foreground text-xl">{title}</h1>
+        <p className="text-muted-foreground text-sm leading-relaxed">{body}</p>
+      </div>
+      {action}
+    </div>
+  );
+}

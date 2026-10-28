@@ -3,17 +3,23 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui";
 import { notify } from "@/lib/toast";
-import { UPDATED_AT } from "../data/settings";
-import { hasErrors, validateSettings } from "../lib/validate";
-import type { SettingsErrors, ShopSettings } from "../types";
+import { hasErrors, validateSettings } from "@/features/shop-settings/lib/validate";
+import type { SettingsErrors, ShopSettings } from "@/features/shop-settings/types";
+import type { PendingImage } from "@/features/menu-management/components/image-picker";
 import { HoursSection } from "./hours-section";
 import { NotificationSection } from "./notification-section";
 import { OrderingSection } from "./ordering-section";
 import { SettingsNav } from "./settings-nav";
+import { StaffCallSection } from "./staff-call-section";
 import { ShopInfoSection } from "./shop-info-section";
 
 interface SettingsWorkspaceProps {
-  initialSettings: ShopSettings;
+  /** ค่าล่าสุดของร้านจากเซิร์ฟเวอร์ (เปลี่ยนเมื่อมีใครบันทึกหรือสลับเปิด-ปิดร้าน) */
+  settings: ShopSettings;
+  /** เวลาบันทึกล่าสุดที่แสดงท้ายหน้า */
+  updatedAt: string;
+  /** บันทึกค่าทั้งหมด โยน error เมื่อไม่สำเร็จ */
+  onSave: (values: ShopSettings, cover: Blob | null) => Promise<void>;
   /** แก้ไขได้ (สิทธิ์ settings.edit ของผู้ใช้ปัจจุบัน) ถ้าไม่มีสิทธิ์จะดูได้อย่างเดียว */
   canEdit?: boolean;
 }
@@ -26,17 +32,27 @@ const NO_ERRORS: SettingsErrors = { hours: {} };
  * ข้อผิดพลาดแสดงหลังกดบันทึกครั้งแรก จากนั้นอัปเดตตามที่พิมพ์
  */
 export function SettingsWorkspace({
-  initialSettings,
+  settings,
+  updatedAt,
+  onSave,
   canEdit = true,
 }: SettingsWorkspaceProps) {
-  const [saved, setSaved] = useState(initialSettings);
-  const [values, setValues] = useState(initialSettings);
+  const [saved, setSaved] = useState(settings);
+  const [values, setValues] = useState(settings);
   const [attempted, setAttempted] = useState(false);
   const [saving, setSaving] = useState(false);
+  /** รูปปกที่ตัดแล้วแต่ยังไม่อัปโหลด */
+  const [cover, setCover] = useState<PendingImage | null>(null);
+
+  // ค่าจากเซิร์ฟเวอร์เปลี่ยน (เช่น สลับเปิด-ปิดร้านที่แถบบน): ถ้าไม่มีการแก้ค้างอยู่ให้ฟอร์มตามทันที
+  if (settings !== saved) {
+    if (JSON.stringify(values) === JSON.stringify(saved)) setValues(settings);
+    setSaved(settings);
+  }
 
   const dirty = useMemo(
-    () => JSON.stringify(values) !== JSON.stringify(saved),
-    [values, saved],
+    () => cover !== null || JSON.stringify(values) !== JSON.stringify(saved),
+    [cover, values, saved],
   );
   const errors = useMemo(
     () => (attempted ? validateSettings(values) : NO_ERRORS),
@@ -57,19 +73,24 @@ export function SettingsWorkspace({
       return;
     }
     setSaving(true);
-    // เมื่อมี API ให้เรียกบันทึกตรงนี้ แล้วใช้ค่าที่เซิร์ฟเวอร์ตอบกลับ
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setSaved(values);
-    setAttempted(false);
-    setSaving(false);
-    notify.success(
-      "บันทึกการตั้งค่าแล้ว",
-      "ลูกค้าและพนักงานจะเห็นค่าใหม่ทันที",
-    );
+    try {
+      await onSave(values, cover?.blob ?? null);
+      setCover(null);
+      setAttempted(false);
+      notify.success(
+        "บันทึกการตั้งค่าแล้ว",
+        "ลูกค้าและพนักงานจะเห็นค่าใหม่ทันที",
+      );
+    } catch (e) {
+      notify.error(e);
+    } finally {
+      setSaving(false);
+    }
   }
 
   function discard() {
     setValues(saved);
+    setCover(null);
     setAttempted(false);
   }
 
@@ -87,18 +108,22 @@ export function SettingsWorkspace({
 
       <div className="grid items-start gap-6 xl:grid-cols-[200px_minmax(0,1fr)]">
         <SettingsNav />
-        {/* fieldset disabled ปิดทุกช่องและสวิตช์ในครั้งเดียวเมื่อไม่มีสิทธิ์แก้ไข */}
-        <fieldset disabled={!canEdit} className="flex min-w-0 flex-col gap-5">
-          <legend className="sr-only">การตั้งค่าร้าน</legend>
-          <ShopInfoSection values={values} errors={errors} onChange={change} />
-          <HoursSection values={values} errors={errors} onChange={change} />
-          <OrderingSection values={values} errors={errors} onChange={change} />
-          <NotificationSection values={values} onChange={change} />
-        </fieldset>
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* fieldset disabled ปิดทุกช่องและสวิตช์ในครั้งเดียวเมื่อไม่มีสิทธิ์แก้ไข */}
+          <fieldset disabled={!canEdit} className="flex min-w-0 flex-col gap-5">
+            <legend className="sr-only">การตั้งค่าร้าน</legend>
+            <ShopInfoSection values={values} errors={errors} onChange={change} cover={cover} onCoverChange={setCover} />
+            <HoursSection values={values} errors={errors} onChange={change} />
+            <OrderingSection values={values} errors={errors} onChange={change} />
+            <NotificationSection values={values} onChange={change} />
+          </fieldset>
+          {/* เสียงเรียกพนักงานเป็นค่าของเครื่องนี้ ใครก็ตั้งได้ ไม่ต้องมีสิทธิ์แก้ไขร้าน */}
+          <StaffCallSection />
+        </div>
       </div>
 
       <p className="text-muted-foreground text-[11px]">
-        บันทึกล่าสุด {UPDATED_AT}
+        บันทึกล่าสุด {updatedAt}
       </p>
 
       {canEdit && dirty && (

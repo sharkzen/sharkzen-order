@@ -1,6 +1,6 @@
 import { Printer } from "lucide-react";
 import { Button } from "@/components/ui";
-import type { FinishAction } from "../types";
+import type { FinishAction } from "@/features/cashier/types";
 
 interface FinishActionsProps {
   onFinish: (action: FinishAction) => void;

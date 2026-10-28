@@ -6,7 +6,7 @@ import {
   NO_DISCOUNT,
   PERCENT_PRESETS,
   type DiscountInput,
-} from "../lib/bill-utils";
+} from "@/features/cashier/lib/bill-utils";
 
 interface DiscountControlProps {
   value: DiscountInput;

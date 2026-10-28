@@ -8,6 +8,8 @@ export interface BillLine {
 /** คำสั่งซื้อหนึ่งรอบของโต๊ะ (ลูกค้าโต๊ะเดียวกันสั่งได้หลายรอบ) */
 export interface BillRound {
   orderId: string;
+  /** เลขออเดอร์ที่แสดง เช่น 12 → "#12" */
+  number: number;
   /** เวลาที่สั่ง HH:mm */
   time: string;
   lines: BillLine[];
@@ -21,6 +23,8 @@ export interface Payment {
   method: CheckoutMethod;
   /** เวลาที่รับชำระ HH:mm */
   paidAt: string;
+  /** วันที่รับชำระ เช่น "24 ต.ค. 2569" (ใช้บนใบเสร็จ) */
+  paidDate?: string;
   subtotal: number;
   discount: number;
   serviceCharge: number;
@@ -37,6 +41,10 @@ export interface TableBill {
   zone: string;
   /** เวลาเปิดโต๊ะ HH:mm */
   openedAt: string;
+  /** เวลาเปิดโต๊ะ (epoch ms) ใช้คำนวณเวลาที่นั่งมาแล้ว */
+  openedAtMs: number;
+  /** เวลาที่สั่งรอบล่าสุด (epoch ms) null = ยังไม่มีออเดอร์ */
+  lastOrderAtMs: number | null;
   rounds: BillRound[];
   /** มีค่า = ชำระแล้ว รอปิดโต๊ะ */
   payment: Payment | null;

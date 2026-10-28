@@ -3,10 +3,12 @@
 import { useMemo, useState } from "react";
 import { ReceiptText } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
+import { cn } from "@/lib/cn";
+import { useSocketConnected } from "@/lib/socket";
 import { notify } from "@/lib/toast";
-import { COLLECTED_BEFORE, UPDATED_AT } from "../data/bills";
-import { billTotal } from "../lib/bill-utils";
-import { useIsDesktop } from "../lib/use-desktop";
+import type { PayInput } from "@/features/cashier/lib/cashier-api";
+import { billTotal, isDue } from "@/features/cashier/lib/bill-utils";
+import { useIsDesktop } from "@/features/cashier/lib/use-desktop";
 import type {
   BillTotals,
   CheckoutConfig,
@@ -14,42 +16,56 @@ import type {
   FinishAction,
   Payment,
   TableBill,
-} from "../types";
+} from "@/features/cashier/types";
 import { BillPanel } from "./bill-panel";
 import { CashierStats } from "./cashier-stats";
 import { CheckoutModal, type CheckoutState } from "./checkout-modal";
 import { ReceiptSheet } from "./receipt-sheet";
 import { TableList, type TableView } from "./table-list";
 
-interface CashierWorkspaceProps {
-  initialBills: TableBill[];
+export interface CashierActions {
+  /** บันทึกการชำระ คืนยอดที่ server บันทึกจริง หรือ undefined เมื่อไม่สำเร็จ (แจ้งสาเหตุให้แล้ว) */
+  pay: (tableId: string, input: PayInput) => Promise<Payment | undefined>;
+  closeTable: (bill: TableBill) => Promise<boolean>;
+}
+
+interface CashierViewProps {
+  bills: TableBill[];
+  collectedToday: number;
+  updatedAt: string;
+  actions: CashierActions;
   config: CheckoutConfig;
   /** ให้ส่วนลดได้ (สิทธิ์ cashier.discount ของผู้ใช้ปัจจุบัน) */
   canDiscount?: boolean;
 }
 
 /** รอชำระขึ้นก่อน และในกลุ่มเดียวกันโต๊ะที่เปิดนานที่สุดขึ้นก่อน */
+function rank(bill: TableBill) {
+  return isDue(bill) ? 0 : bill.payment ? 1 : 2;
+}
+
 function byPriority(a: TableBill, b: TableBill) {
-  return (
-    Number(!!a.payment) - Number(!!b.payment) ||
-    a.openedAt.localeCompare(b.openedAt)
-  );
+  return rank(a) - rank(b) || a.openedAtMs - b.openedAtMs;
 }
 
 /**
- * จอคิดเงิน: ซ้ายเลือกโต๊ะ ขวาเป็นบิลที่พอดีหนึ่งหน้าจอ กด "เงินสด" หรือ "โอนเงิน" แล้วเปิดหน้าต่างรับเงิน
+ * จอคิดเงิน (ไม่ดึงข้อมูลเอง รับบิลและ actions จาก CashierWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้): ซ้ายเลือกโต๊ะ ขวาเป็นบิลที่พอดีหนึ่งหน้าจอ กด "เงินสด" หรือ "โอนเงิน" แล้วเปิดหน้าต่างรับเงิน
  * ชำระเสร็จ → พิมพ์ใบเสร็จ → ปิดโต๊ะ → บิลโต๊ะรอชำระถัดไปขึ้นเอง
- * จอเล็กจะเปิดบิลเป็นหน้าต่างเต็มจอแทน สถานะบิลเก็บในหน้านี้ก่อน เมื่อมี API ให้เรียกบันทึกที่ pay / closeTable
- * และเมื่อเชื่อม Stripe ให้รับสถานะชำระเงินจาก webhook แทนการกดยืนยันเอง
+ * จอเล็กจะเปิดบิลเป็นหน้าต่างเต็มจอแทน ยอดทุกบาทถูกคำนวณซ้ำและบันทึกที่ server ตอนรับชำระ
  */
-export function CashierWorkspace({
-  initialBills,
+export function CashierView({
+  bills,
+  collectedToday,
+  updatedAt,
+  actions,
   config,
   canDiscount = true,
-}: CashierWorkspaceProps) {
+}: CashierViewProps) {
   const desktop = useIsDesktop();
-  const [bills, setBills] = useState(initialBills);
+  const live = useSocketConnected();
+  const [paying, setPaying] = useState(false);
   const [view, setView] = useState<TableView>("due");
+  const [zone, setZone] = useState("");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutState | null>(null);
@@ -60,20 +76,19 @@ export function CashierWorkspace({
   } | null>(null);
 
   const stats = useMemo(() => {
-    const due = bills.filter((bill) => !bill.payment);
+    const due = bills.filter(isDue);
     return {
       dueCount: due.length,
       dueAmount: due.reduce((sum, bill) => sum + billTotal(bill, config), 0),
-      collected:
-        COLLECTED_BEFORE +
-        bills.reduce((sum, bill) => sum + (bill.payment?.total ?? 0), 0),
+      collected: collectedToday,
     };
-  }, [bills, config]);
+  }, [bills, config, collectedToday]);
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     return bills
-      .filter((bill) => view === "all" || !bill.payment)
+      .filter((bill) => view === "all" || isDue(bill))
+      .filter((bill) => !zone || bill.zone === zone)
       .filter(
         (bill) =>
           !keyword ||
@@ -81,35 +96,41 @@ export function CashierWorkspace({
           bill.zone.toLowerCase().includes(keyword),
       )
       .sort(byPriority);
-  }, [bills, view, query]);
+  }, [bills, view, query, zone]);
 
+  const zones = useMemo(() => [...new Set(bills.map((bill) => bill.zone))], [bills]);
   const selected = bills.find((bill) => bill.tableId === selectedId) ?? null;
   const checkoutBill =
     bills.find((bill) => bill.tableId === checkout?.tableId) ?? null;
-  const firstDue = [...bills].filter((b) => !b.payment).sort(byPriority)[0];
+  const firstDue = [...bills].filter(isDue).sort(byPriority)[0];
 
   function startPay(method: CheckoutMethod, totals: BillTotals) {
     if (selected) setCheckout({ tableId: selected.tableId, method, totals });
   }
 
-  function pay(tableId: string, payment: Payment) {
-    const bill = bills.find((item) => item.tableId === tableId);
-    setBills((prev) =>
-      prev.map((item) =>
-        item.tableId === tableId ? { ...item, payment } : item,
-      ),
-    );
-    notify.success(
-      `รับชำระ ${bill?.tableName ?? "โต๊ะ"} แล้ว`,
-      `${payment.method === "cash" ? "เงินสด" : "โอนเงิน"} ฿${payment.total.toLocaleString("th-TH")}`,
-    );
+  async function pay(tableId: string, payment: Payment) {
+    if (paying) return;
+    setPaying(true);
+    const saved = await actions.pay(tableId, {
+      method: payment.method,
+      discount: payment.discount,
+      received: payment.received,
+    });
+    setPaying(false);
+    if (saved) {
+      const bill = bills.find((item) => item.tableId === tableId);
+      notify.success(
+        `รับชำระ ${bill?.tableName ?? "โต๊ะ"} แล้ว`,
+        `${saved.method === "cash" ? "เงินสด" : "โอนเงิน"} ฿${saved.total.toLocaleString("th-TH")}`,
+      );
+    }
   }
 
-  function closeTable(bill: TableBill) {
+  async function closeTable(bill: TableBill) {
     const next = bills
-      .filter((item) => !item.payment && item.tableId !== bill.tableId)
+      .filter((item) => isDue(item) && item.tableId !== bill.tableId)
       .sort(byPriority)[0];
-    setBills((prev) => prev.filter((item) => item.tableId !== bill.tableId));
+    if (!(await actions.closeTable(bill))) return;
     // จอใหญ่: กระโดดไปโต๊ะรอชำระถัดไปทันที จอเล็ก: กลับไปรายการโต๊ะ
     setSelectedId(desktop ? (next?.tableId ?? null) : null);
     notify.success(`ปิด${bill.tableName} แล้ว`, "โต๊ะพร้อมรับลูกค้ากลุ่มถัดไป");
@@ -150,8 +171,19 @@ export function CashierWorkspace({
           <h1 className="font-display text-foreground text-2xl leading-tight font-semibold">
             คิดเงิน
           </h1>
-          <p className="text-muted-foreground hidden text-xs xl:block">
-            อัปเดตล่าสุด {UPDATED_AT}
+          <p
+            role="status"
+            className={cn(
+              "flex items-center gap-1.5 text-xs",
+              live ? "text-success-strong" : "text-muted-foreground",
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn("size-2 rounded-full", live ? "bg-success" : "bg-muted-foreground/50")}
+            />
+            {live ? "อัปเดตสด" : "ขาดการเชื่อมต่อ รีเฟรชหน้าเพื่อโหลดล่าสุด"}
+            <span className="text-muted-foreground hidden xl:inline">• {updatedAt}</span>
           </p>
         </div>
         <CashierStats
@@ -170,6 +202,9 @@ export function CashierWorkspace({
           dueCount={stats.dueCount}
           totalCount={bills.length}
           selectedId={selectedId}
+          zones={zones}
+          zone={zone}
+          onZoneChange={setZone}
           onViewChange={setView}
           onQueryChange={setQuery}
           onSelect={(bill) => setSelectedId(bill.tableId)}

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Dialog, FormField, Input, Select } from "@/components/ui";
-import type { Role } from "../types";
+import type { Role } from "@/features/staff-management/types";
 
 interface RoleDialogProps {
   open: boolean;
@@ -86,7 +86,7 @@ function RoleForm({ roles, onClose, onSubmit }: RoleDialogProps) {
           <Select
             id="role-copy"
             value={copyFrom}
-            onChange={(e) => setCopyFrom(e.target.value)}
+            onChange={setCopyFrom}
             options={[
               { value: "", label: "ไม่มีสิทธิ์ใดๆ (เริ่มว่าง)" },
               ...roles.map((role) => ({ value: role.id, label: role.name })),

@@ -1,7 +1,7 @@
 import { Section } from "@/components/layout/section";
 import { SectionHeading } from "@/components/layout/section-heading";
 import { cn } from "@/lib/cn";
-import { FEATURES, PAYMENT_METHODS, type Feature } from "../data";
+import { FEATURES, PAYMENT_METHODS, type Feature } from "@/features/landing/data";
 
 const SPAN_CLASS: Record<Feature["span"], string> = {
   2: "lg:col-span-2",

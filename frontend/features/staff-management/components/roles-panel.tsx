@@ -3,14 +3,14 @@
 import { Lock, Plus, Trash2 } from "lucide-react";
 import { Button, Card, Checkbox, Switch } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { RESOURCES } from "../data/permissions";
+import { RESOURCES } from "@/features/staff-management/data/permissions";
 import {
   accessibleResources,
   canView,
   permissionKey,
   setPermission,
-} from "../lib/permission-utils";
-import type { PermissionKey, Role, StaffMember } from "../types";
+} from "@/features/staff-management/lib/permission-utils";
+import type { PermissionKey, Role, StaffMember } from "@/features/staff-management/types";
 
 interface RolesPanelProps {
   roles: Role[];

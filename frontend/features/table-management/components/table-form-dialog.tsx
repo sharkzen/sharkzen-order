@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Button, Dialog, FormField, Input } from "@/components/ui";
+import { Button, Dialog, FormField, Input, Select } from "@/components/ui";
 import {
   MAX_CREATE,
   namesFor,
   nextNumber,
   validateCreate,
   validateEdit,
-} from "../lib/table-utils";
-import type { CreateSpec, DiningTable, EditValues } from "../types";
+} from "@/features/table-management/lib/table-utils";
+import type { CreateSpec, DiningTable, EditValues } from "@/features/table-management/types";
 
 interface TableFormDialogProps {
   open: boolean;
@@ -60,18 +60,16 @@ function ZoneField({
       hint="เลือกโซนที่มี หรือพิมพ์ชื่อโซนใหม่"
       required
     >
-      <Input
+      <Select
         id="table-form-zone"
-        list="table-zones"
         value={value}
         invalid={!!error}
-        onChange={(e) => onChange(e.target.value)}
+        creatable
+        placeholder="เลือกหรือพิมพ์ชื่อโซน"
+        searchPlaceholder="ค้นหาหรือพิมพ์ชื่อโซนใหม่"
+        onChange={onChange}
+        options={zones.map((z) => ({ value: z, label: z }))}
       />
-      <datalist id="table-zones">
-        {zones.map((z) => (
-          <option key={z} value={z} />
-        ))}
-      </datalist>
     </FormField>
   );
 }

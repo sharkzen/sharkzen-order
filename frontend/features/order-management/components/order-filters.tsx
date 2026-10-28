@@ -1,13 +1,16 @@
-import { CalendarDays, Search } from "lucide-react";
-import { Card, FilterField, FilterSelect, Input } from "@/components/ui";
-import { PAYMENT_OPTIONS, STATUS_OPTIONS } from "../lib/labels";
-import type { PaymentFilter, StatusFilter } from "../types";
+import { Search } from "lucide-react";
+import { Card, DatePicker, FilterField, Input, Select } from "@/components/ui";
+import { PAYMENT_OPTIONS, STATUS_OPTIONS } from "@/features/order-management/lib/labels";
+import type { PaymentFilter, StatusFilter } from "@/features/order-management/types";
 
 interface OrderFiltersProps {
   query: string;
   status: StatusFilter;
   payment: PaymentFilter;
-  dateLabel: string;
+  /** วันที่ดูอยู่ YYYY-MM-DD */
+  date: string;
+  maxDate: string;
+  onDateChange: (value: string) => void;
   onQueryChange: (value: string) => void;
   onStatusChange: (value: StatusFilter) => void;
   onPaymentChange: (value: PaymentFilter) => void;
@@ -18,7 +21,9 @@ export function OrderFilters({
   query,
   status,
   payment,
-  dateLabel,
+  date,
+  maxDate,
+  onDateChange,
   onQueryChange,
   onStatusChange,
   onPaymentChange,
@@ -45,31 +50,26 @@ export function OrderFilters({
       </div>
 
       <FilterField label="วันที่สั่งอาหาร" htmlFor="order-date">
-        <button
-          id="order-date"
-          type="button"
-          className="border-border bg-surface hover:bg-muted focus-visible:ring-primary/50 flex h-[46px] w-full cursor-pointer items-center justify-between gap-3 rounded-lg border px-3.5 text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none"
-        >
-          <span className="text-muted-foreground">{dateLabel}</span>
-          <CalendarDays className="text-muted-foreground size-4" aria-hidden />
-        </button>
+        <DatePicker id="order-date" size="lg" value={date} max={maxDate} onChange={onDateChange} />
       </FilterField>
 
       <FilterField label="สถานะการชำระเงิน" htmlFor="order-payment">
-        <FilterSelect
+        <Select
+          size="lg"
           id="order-payment"
           value={payment}
           options={PAYMENT_OPTIONS}
-          onChange={(e) => onPaymentChange(e.target.value as PaymentFilter)}
+          onChange={(v) => onPaymentChange(v as PaymentFilter)}
         />
       </FilterField>
 
       <FilterField label="สถานะคำสั่งซื้อ" htmlFor="order-status">
-        <FilterSelect
+        <Select
+          size="lg"
           id="order-status"
           value={status}
           options={STATUS_OPTIONS}
-          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
+          onChange={(v) => onStatusChange(v as StatusFilter)}
         />
       </FilterField>
     </Card>

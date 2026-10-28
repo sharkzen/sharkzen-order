@@ -2,14 +2,14 @@
 
 import { useState, type FormEvent } from "react";
 import { Button, Dialog } from "@/components/ui";
-import { checkPassword } from "../lib/password";
-import type { StaffMember } from "../types";
+import { checkPassword } from "@/features/staff-management/lib/password";
+import type { StaffMember } from "@/features/staff-management/types";
 import { PasswordField } from "./password-field";
 
 interface ResetPasswordDialogProps {
   member: StaffMember | null;
   onClose: () => void;
-  onSubmit: (member: StaffMember, password: string) => void;
+  onSubmit: (member: StaffMember, password: string) => void | Promise<unknown>;
 }
 
 /** รีเซ็ตรหัสผ่านให้พนักงานที่ลืม เจ้าของร้านหรือผู้จัดการตั้งรหัสใหม่ แล้วแจ้งพนักงานโดยตรง */

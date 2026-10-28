@@ -1,21 +1,35 @@
 import { FormField, Input, Textarea } from "@/components/ui";
-import type { SettingsErrors, ShopSettings } from "../types";
+import type { SettingsErrors, ShopSettings } from "@/features/shop-settings/types";
+import type { PendingImage } from "@/features/menu-management/components/image-picker";
+import { CoverImageField } from "./cover-image-field";
 import { SettingsSection } from "./settings-section";
 
 interface SectionProps {
   values: ShopSettings;
   errors: SettingsErrors;
   onChange: (patch: Partial<ShopSettings>) => void;
+  cover: PendingImage | null;
+  onCoverChange: (cover: PendingImage | null) => void;
 }
 
 /** ชื่อร้านและช่องทางติดต่อ ที่แสดงให้ลูกค้าเห็นบนหน้าสั่งอาหาร */
-export function ShopInfoSection({ values, errors, onChange }: SectionProps) {
+export function ShopInfoSection({ values, errors, onChange, cover, onCoverChange }: SectionProps) {
   return (
     <SettingsSection
       id="shop"
       title="ข้อมูลร้าน"
       description="ลูกค้าเห็นข้อมูลนี้บนหน้าสั่งอาหารและใบเสร็จ"
     >
+      <CoverImageField
+        current={values.coverImage}
+        pending={cover}
+        onPendingChange={onCoverChange}
+        onRemove={() => {
+          onCoverChange(null);
+          onChange({ coverImage: "" });
+        }}
+      />
+
       <div className="grid gap-5 sm:grid-cols-2">
         <FormField
           label="ชื่อร้าน"

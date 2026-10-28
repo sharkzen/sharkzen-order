@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { tableLink } from "../lib/table-utils";
-import { pageLayout, type PrintSettings } from "../lib/print-settings";
-import type { DiningTable } from "../types";
+import { tableLink } from "@/features/table-management/lib/table-utils";
+import { pageLayout, type PrintSettings } from "@/features/table-management/lib/print-settings";
+import type { DiningTable } from "@/features/table-management/types";
 import { QrCard } from "./qr-card";
 
 interface PrintSheetProps {

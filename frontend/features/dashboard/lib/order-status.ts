@@ -3,7 +3,7 @@ import type { ComponentType } from "react";
 import { CookingPotIcon } from "@/components/icons/cooking-pot";
 import { RingingBellIcon } from "@/components/icons/ringing-bell";
 import type { BadgeProps } from "@/components/ui/badge";
-import type { OrderStatus } from "../types";
+import type { OrderStatus } from "@/features/dashboard/types";
 
 /** สีของแต่ละสถานะ ใช้ร่วมกันระหว่างแผนภูมิวงแหวนและคำอธิบาย (ผ่าน currentColor) */
 export const STATUS_COLOR: Record<OrderStatus, string> = {

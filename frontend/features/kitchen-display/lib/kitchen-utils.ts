@@ -1,4 +1,4 @@
-import type { KitchenItem, KitchenOrder, KitchenStatus } from "../types";
+import type { KitchenItem, KitchenOrder, KitchenStatus } from "@/features/kitchen-display/types";
 
 /** เวลาที่งานอยู่ในสถานะปัจจุบันมาแล้ว (นาที) */
 export function waitMinutes(order: KitchenOrder, ticks: number) {

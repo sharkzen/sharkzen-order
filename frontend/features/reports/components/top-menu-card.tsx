@@ -1,7 +1,7 @@
 import { SectionCard } from "@/features/dashboard/components/shared/section-card";
 import { formatNumber } from "@/features/dashboard/lib/format";
 import { ROUTES } from "@/constants/routes";
-import type { TopMenu } from "../types";
+import type { TopMenu } from "@/features/reports/types";
 
 /** เมนูทำเงินสูงสุด เรียงตามยอดขาย แท่งเทียบกับเมนูอันดับ 1 */
 export function TopMenuCard({ menus }: { menus: TopMenu[] }) {

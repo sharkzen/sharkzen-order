@@ -3,7 +3,7 @@
 import { AnimatePresence, m } from "framer-motion";
 import { ChefHat } from "lucide-react";
 import { Badge } from "@/components/ui";
-import { DEMO_ORDER_ITEMS, DEMO_TABLE } from "../../data";
+import { DEMO_ORDER_ITEMS, DEMO_TABLE } from "@/features/landing/data";
 import { DemoPanel } from "./demo-panel";
 
 type TicketStatus = { label: string; tone: "info" | "warning" | "success" };

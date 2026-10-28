@@ -1,8 +1,7 @@
-import { EllipsisVertical } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatBaht } from "@/features/dashboard/lib/format";
-import { countItems, summarizeItems } from "../lib/order-utils";
-import type { ManagedOrder } from "../types";
+import { countItems, summarizeItems } from "@/features/order-management/lib/order-utils";
+import type { ManagedOrder } from "@/features/order-management/types";
 import { FoodStatusBadge, PaymentBadge } from "./order-badges";
 
 /** ความกว้างคอลัมน์ของตาราง ใช้ร่วมกับหัวตาราง (ตั้งแต่ xl ขึ้นไป) */
@@ -13,18 +12,17 @@ export const ORDER_GRID =
  * แถวคำสั่งซื้อหนึ่งรายการ
  * จอใหญ่: แถวตาราง 8 คอลัมน์ / จอเล็ก: การ์ด (xl:contents ทำให้ลูกกลายเป็นคอลัมน์ของ grid)
  */
-export function OrderRow({ order }: { order: ManagedOrder }) {
+export function OrderRow({ order, onView }: { order: ManagedOrder; onView: (order: ManagedOrder) => void }) {
   return (
     <li
       className={`border-border flex flex-col gap-3 border-b px-4 py-4 sm:px-5 xl:min-h-[90px] xl:gap-0 xl:py-3.5 ${ORDER_GRID}`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 xl:contents">
         <span className="text-primary-strong text-[13px] font-semibold">
-          {order.id}
+          {order.code}
         </span>
         <span className="text-foreground text-xs">{order.time} น.</span>
         <span className="text-foreground text-sm font-medium">
-          <span className="font-normal xl:hidden">โต๊ะ </span>
           {order.table}
         </span>
       </div>
@@ -51,16 +49,9 @@ export function OrderRow({ order }: { order: ManagedOrder }) {
           <FoodStatusBadge status={order.status} />
         </div>
         <div className="ml-auto flex items-center gap-2 xl:ml-0">
-          <Button variant="outline" size="sm" className="h-[38px]">
+          <Button variant="outline" size="sm" className="h-[38px]" onClick={() => onView(order)}>
             ดูรายการ
           </Button>
-          <button
-            type="button"
-            aria-label={`ตัวเลือกเพิ่มเติมของคำสั่งซื้อ ${order.id}`}
-            className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-primary/50 flex size-8 cursor-pointer items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
-          >
-            <EllipsisVertical className="size-[15px]" aria-hidden />
-          </button>
         </div>
       </div>
     </li>

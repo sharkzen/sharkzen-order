@@ -3,8 +3,8 @@ import type { ComponentType } from "react";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import { formatNumber } from "@/features/dashboard/lib/format";
-import { changePercent } from "../lib/report-utils";
-import type { PeriodSummary } from "../types";
+import { changePercent } from "@/features/reports/lib/report-utils";
+import type { PeriodSummary } from "@/features/reports/types";
 
 interface SummaryCardsProps {
   current: PeriodSummary;

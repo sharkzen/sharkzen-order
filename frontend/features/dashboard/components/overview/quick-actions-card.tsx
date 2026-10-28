@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChefHat, Plus, QrCode } from "lucide-react";
 import { buttonVariants } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { SectionCard } from "../shared/section-card";
+import { SectionCard } from "@/features/dashboard/components/shared/section-card";
 
 const ACTIONS = [
   { label: "เพิ่มเมนูอาหาร", href: ROUTES.menu, icon: Plus, primary: true },

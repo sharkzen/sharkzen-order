@@ -1,4 +1,4 @@
-import type { ManagedOrder } from "../types";
+import type { ManagedOrder } from "@/features/order-management/types";
 import { ORDER_GRID, OrderRow } from "./order-row";
 
 const COLUMNS = [
@@ -13,7 +13,7 @@ const COLUMNS = [
 ];
 
 /** รายการคำสั่งซื้อของหน้านั้น: หัวตารางแสดงเฉพาะจอใหญ่ จอเล็กเป็นการ์ด */
-export function OrdersTable({ orders }: { orders: ManagedOrder[] }) {
+export function OrdersTable({ orders, onView }: { orders: ManagedOrder[]; onView: (order: ManagedOrder) => void }) {
   return (
     <div>
       <div
@@ -26,7 +26,7 @@ export function OrdersTable({ orders }: { orders: ManagedOrder[] }) {
       </div>
       <ul>
         {orders.map((order) => (
-          <OrderRow key={order.id} order={order} />
+          <OrderRow key={order.id} order={order} onView={onView} />
         ))}
       </ul>
     </div>

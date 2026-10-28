@@ -106,6 +106,28 @@ input::-webkit-credentials-auto-fill-button {
   pointer-events: none;
 }
 
+/* แถวที่เลื่อนแนวนอนด้วยนิ้ว: ซ่อนแถบเลื่อน เลื่อนลื่นแบบมีแรงเฉื่อย หยุดตรงชิปพอดี และจางขอบขวาให้รู้ว่ายังมีต่อ */
+.chip-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+.chip-row > * {
+  scroll-snap-align: start;
+}
+.chip-row[data-at-end="true"] {
+  mask-image: none;
+}
+
 /* แถบเลื่อนบางๆ โทนเดียวกับเส้นขอบของเว็บ ใช้กับพื้นที่เลื่อนในแถบนำทาง */
 .scroll-thin {
   scrollbar-width: thin;
@@ -252,4 +274,70 @@ input::-webkit-credentials-auto-fill-button {
   .pos-viewport {
     height: calc(100dvh - 5rem - 5rem);
   }
+}
+
+/* เมนูของช่องเลือก (components/ui/select.tsx) */
+@keyframes select-menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+[data-select-menu] {
+  animation: select-menu-in 120ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-select-menu] {
+    animation: none;
+  }
+}
+
+/*
+ * Skeleton แบบสร้างจาก DOM จริง: ครอบคอมโพเนนต์จริงที่ใส่ข้อมูลตัวอย่างด้วย <Skeleton>
+ * แล้วเปลี่ยนทุกองค์ประกอบปลายทาง (ข้อความ ไอคอน รูป ปุ่ม ช่องกรอก) เป็นแผ่นสีเทากะพริบ
+ * โครงหน้าระหว่างโหลดจึงตรงกับของจริงทุกพิกเซลโดยไม่ต้องเขียน skeleton แยกซ้ำ
+ */
+.sk,
+.sk * {
+  pointer-events: none !important;
+  user-select: none !important;
+  cursor: default !important;
+}
+.sk *:not(:has(*)),
+.sk svg {
+  color: transparent !important;
+  background: var(--border) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 6px;
+}
+.sk svg * {
+  visibility: hidden;
+}
+.sk img,
+.sk canvas {
+  visibility: hidden;
+}
+.sk input::placeholder,
+.sk textarea::placeholder {
+  color: transparent;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .sk *:not(:has(*)),
+  .sk svg {
+    animation: sk-pulse 1.4s ease-in-out infinite;
+  }
+}
+@keyframes sk-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* เปิดหน้าต่างป๊อปอัปแล้วหน้าหลังไม่เลื่อนตาม (กัน scroll ซ้อนกัน) แถบเลื่อนคงที่เพื่อไม่ให้เนื้อหาขยับตอนเปิด-ปิด */
+html {
+  scrollbar-gutter: stable;
+}
+body:has(dialog[open]) {
+  overflow: hidden;
 }

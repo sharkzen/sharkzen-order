@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
@@ -19,6 +20,8 @@ interface PlanPickerProps {
   billing: BillingCycle;
   onPlanChange: (id: PlanId) => void;
   onBillingChange: (billing: BillingCycle) => void;
+  /** ปุ่มยืนยัน แสดงใต้การ์ดแพ็กเกจ */
+  footer?: ReactNode;
 }
 
 const CYCLES: { value: BillingCycle; label: string }[] = [
@@ -26,23 +29,31 @@ const CYCLES: { value: BillingCycle; label: string }[] = [
   { value: "yearly", label: "รายปี" },
 ];
 
-/** เลือกแพ็กเกจและรอบชำระเงิน พร้อมสรุปราคาที่จะเริ่มเก็บหลังทดลองใช้ฟรี */
+/** เลือกแพ็กเกจและรอบชำระเงิน หน้าตาเดียวกับส่วนราคาในหน้าแรก */
 export function PlanPicker({
   plan,
   billing,
   onPlanChange,
   onBillingChange,
+  footer,
 }: PlanPickerProps) {
   const yearly = billing === "yearly";
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col items-center gap-3">
         <div
           role="radiogroup"
           aria-label="รอบการชำระเงิน"
-          className="border-border bg-surface flex rounded-full border p-1"
+          className="border-border bg-surface relative grid grid-cols-2 rounded-full border p-1"
         >
+          <span
+            aria-hidden
+            className={cn(
+              "bg-primary absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+              yearly && "translate-x-full",
+            )}
+          />
           {CYCLES.map((cycle) => (
             <button
               key={cycle.value}
@@ -51,9 +62,9 @@ export function PlanPicker({
               aria-checked={billing === cycle.value}
               onClick={() => onBillingChange(cycle.value)}
               className={cn(
-                "focus-visible:ring-primary/50 h-10 min-w-[110px] cursor-pointer rounded-full px-5 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                "focus-visible:ring-primary/50 relative z-10 flex h-10 min-w-[116px] cursor-pointer items-center justify-center rounded-full px-5 text-sm font-semibold transition-colors duration-300 focus-visible:ring-2 focus-visible:outline-none",
                 billing === cycle.value
-                  ? "bg-primary text-primary-foreground"
+                  ? "text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -61,62 +72,106 @@ export function PlanPicker({
             </button>
           ))}
         </div>
-        <p className="text-success-strong text-[13px] font-semibold">
-          รายปีแถมฟรี {YEARLY_FREE_MONTHS} เดือน
+        <p
+          className={cn(
+            "text-success-strong text-center text-[13px] font-semibold transition-opacity",
+            !yearly && "opacity-60",
+          )}
+        >
+          รายปีจ่ายแค่ {12 - YEARLY_FREE_MONTHS} เดือน ใช้ครบ 12 เดือน ประหยัดกว่า{" "}
+          {Math.round((YEARLY_FREE_MONTHS / 12) * 100)}%
         </p>
       </div>
 
-      <div role="radiogroup" aria-label="แพ็กเกจ" className="grid gap-3 sm:grid-cols-3">
+      <div
+        role="radiogroup"
+        aria-label="แพ็กเกจ"
+        className="mx-auto grid w-full max-w-[1100px] gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+      >
         {PRICING_PLANS.map((item) => {
           const selected = item.id === plan.id;
           return (
-            <button
+            <div
               key={item.id}
-              type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={0}
               onClick={() => onPlanChange(item.id)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onPlanChange(item.id);
+                }
+              }}
               className={cn(
-                "bg-surface focus-visible:ring-primary/50 flex cursor-pointer flex-col items-start gap-1 rounded-xl border p-4 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
+                "bg-surface focus-visible:ring-primary/50 relative flex cursor-pointer flex-col gap-[22px] rounded-xl p-6 transition-colors focus-visible:ring-2 focus-visible:outline-none sm:p-7",
                 selected
-                  ? "border-primary ring-primary ring-1"
-                  : "border-border hover:border-primary/50",
+                  ? "border-primary border-2"
+                  : "border-border hover:border-primary/50 border",
               )}
             >
-              <span className="flex w-full items-center justify-between text-sm font-semibold">
-                {item.name}
-                {selected && <Check className="text-primary size-4" aria-hidden />}
-              </span>
-              <span className="text-primary-strong text-xl font-bold">
-                {formatBaht(yearly ? yearlyPerMonth(item) : item.monthly)}
-                <span className="text-muted-foreground text-xs font-normal"> /เดือน</span>
-              </span>
-            </button>
+              {item.featured && (
+                <span className="bg-primary text-primary-foreground absolute -top-3 left-6 rounded-full px-3 py-1 text-xs leading-none font-semibold sm:left-7">
+                  แนะนำ
+                </span>
+              )}
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-foreground text-[23px] font-semibold">
+                  {item.name}
+                </h3>
+                {selected && (
+                  <span className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-full">
+                    <Check className="size-4" aria-hidden />
+                  </span>
+                )}
+              </div>
+              <p className="text-muted-foreground text-[13px]">{item.description}</p>
+              <div className="flex min-h-[104px] flex-col gap-1" aria-live="polite">
+                <p className="flex items-baseline gap-2">
+                  <span className="font-display text-foreground text-[44px] font-semibold">
+                    {formatBaht(yearly ? yearlyPerMonth(item) : item.monthly)}
+                  </span>
+                  <span className="text-muted-foreground text-sm">บาทต่อเดือน</span>
+                  {yearly && (
+                    <span className="text-muted-foreground text-sm line-through">
+                      {formatBaht(item.monthly)}
+                    </span>
+                  )}
+                </p>
+                {yearly ? (
+                  <>
+                    <p className="text-foreground text-[13px] font-medium">
+                      ชำระปีละ {formatBaht(item.yearly)} บาท
+                    </p>
+                    <p className="text-success-strong text-[13px] font-semibold">
+                      ประหยัด {formatBaht(yearlySavings(item))} บาทต่อปี
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-[13px]">
+                    ยกเลิกได้ทุกเดือน ไม่มีสัญญาผูกมัด
+                  </p>
+                )}
+                <p className="text-muted-foreground text-xs">ยังไม่รวมภาษีมูลค่าเพิ่ม</p>
+              </div>
+              <ul className="border-border flex flex-col gap-[14px] border-t pt-5">
+                {item.perks.map((perk) => (
+                  <li key={perk} className="flex items-center gap-[10px] text-sm">
+                    <Check className="text-success size-[17px] shrink-0" aria-hidden />
+                    {perk}
+                  </li>
+                ))}
+              </ul>
+            </div>
           );
         })}
       </div>
 
-      <div className="border-border bg-muted flex flex-col gap-3 rounded-xl border p-4">
-        <ul className="flex flex-col gap-2">
-          {plan.perks.map((perk) => (
-            <li key={perk} className="flex items-center gap-2 text-sm">
-              <Check className="text-success size-4 shrink-0" aria-hidden />
-              {perk}
-            </li>
-          ))}
-        </ul>
-        <p className="text-muted-foreground border-border border-t pt-3 text-[13px] leading-relaxed" aria-live="polite">
-          ทดลองใช้ฟรี {TRIAL_DAYS} วัน จากนั้น{" "}
-          <strong className="text-foreground">
-            {yearly
-              ? `${formatBaht(plan.yearly)} บาท/ปี`
-              : `${formatBaht(plan.monthly)} บาท/เดือน`}
-          </strong>
-          {yearly
-            ? ` (ประหยัด ${formatBaht(yearlySavings(plan))} บาท)`
-            : " ยกเลิกได้ทุกเดือน"}{" "}
-          ยังไม่รวมภาษีมูลค่าเพิ่ม
+      <div className="mx-auto flex w-full max-w-[420px] flex-col gap-3">
+        <p className="text-muted-foreground text-center text-[13px]">
+          ทดลองใช้ฟรี {TRIAL_DAYS} วัน จากนั้นเริ่มเก็บเงินตามแพ็กเกจ {plan.name}
         </p>
+        {footer}
       </div>
     </div>
   );

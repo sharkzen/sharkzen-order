@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
-import { STATUS_COLOR } from "../../lib/order-status";
-import type { OrderStatusCount } from "../../types";
-import { SectionCard } from "../shared/section-card";
+import { STATUS_COLOR } from "@/features/dashboard/lib/order-status";
+import type { OrderStatusCount } from "@/features/dashboard/types";
+import { SectionCard } from "@/features/dashboard/components/shared/section-card";
 import { StatusDonut } from "./status-donut";
 
 /** สถานะคำสั่งซื้อวันนี้: แผนภูมิวงแหวนและตารางจำนวน/สัดส่วน */
@@ -33,7 +33,7 @@ export function OrderStatusCard({
                 {count}
               </span>
               <span className="text-muted-foreground w-9 text-right text-[11px]">
-                {Math.round((count / total) * 100)}%
+                {total ? Math.round((count / total) * 100) : 0}%
               </span>
             </li>
           ))}

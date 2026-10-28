@@ -57,7 +57,6 @@ export interface PaymentMethod {
 export const PAYMENT_METHODS: PaymentMethod[] = [
   { id: "promptpay", label: "พร้อมเพย์", icon: BsQrCode, amount: 7240 },
   { id: "cash", label: "เงินสด", icon: FaMoneyBill1Wave, amount: 2990 },
-  { id: "card", label: "บัตรเครดิต/เดบิต", icon: FaCreditCard, amount: 1750 },
   {
     id: "transfer",
     label: "โอนผ่านธนาคาร",

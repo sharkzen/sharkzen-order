@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
-import { KITCHEN_CANCEL_REASONS, countItems } from "../lib/kitchen-utils";
-import type { KitchenOrder } from "../types";
+import { KITCHEN_CANCEL_REASONS, countItems } from "@/features/kitchen-display/lib/kitchen-utils";
+import type { KitchenOrder } from "@/features/kitchen-display/types";
 import { ReasonPicker } from "./reason-picker";
 
 interface CancelOrderDialogProps {
@@ -32,7 +32,7 @@ function CancelForm({
           ยกเลิกคำสั่งซื้อนี้หรือไม่?
         </p>
         <p className="text-muted-foreground text-sm">
-          {order.id} • โต๊ะ {order.table} • {countItems(order)} รายการ
+          {order.code} • โต๊ะ {order.table} • {countItems(order)} รายการ
           ครัวจะหยุดทำรายการนี้และออกจากกระดานทันที
         </p>
       </div>

@@ -5,9 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, FormField, Input } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { TRIAL_DAYS, type BillingCycle, type PlanId } from "@/features/landing/data";
+import {
+  TRIAL_DAYS,
+  type BillingCycle,
+  type PlanId,
+} from "@/features/landing/data";
 import { notify } from "@/lib/toast";
-import { authApi } from "../lib/auth-api";
+import { authApi } from "@/features/auth/lib/auth-api";
 import { OtpStep } from "./otp-step";
 import { PasswordInput } from "./password-input";
 import { PasswordStrengthMeter } from "./password-strength-meter";
@@ -91,9 +95,9 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
   }
 
   return (
-    <div className="flex flex-col gap-7">
-      <div className="flex flex-col gap-2">
-        <h1 className="font-display text-foreground text-[26px] leading-tight font-semibold">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-1.5">
+        <h1 className="font-display text-foreground text-2xl leading-tight font-semibold">
           สมัครสมาชิก
         </h1>
         <p className="text-muted-foreground text-sm">
@@ -101,14 +105,14 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-5">
-        <div className="grid gap-5 sm:grid-cols-2">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="ชื่อ" htmlFor="firstName" error={errors.firstName}>
             <Input
               id="firstName"
               name="firstName"
               autoComplete="given-name"
-              className="h-12 text-[15px]"
+              className="h-11 text-[15px]"
               invalid={!!errors.firstName}
             />
           </FormField>
@@ -117,7 +121,7 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
               id="lastName"
               name="lastName"
               autoComplete="family-name"
-              className="h-12 text-[15px]"
+              className="h-11 text-[15px]"
               invalid={!!errors.lastName}
             />
           </FormField>
@@ -129,44 +133,48 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
             type="email"
             autoComplete="email"
             placeholder="you@restaurant.com"
-            className="h-12 text-[15px]"
+            className="h-11 text-[15px]"
             invalid={!!errors.email}
           />
         </FormField>
-        <div className="flex flex-col gap-2.5">
+        <div className="grid items-start gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-2">
+            <FormField
+              label="รหัสผ่าน"
+              htmlFor="password"
+              error={errors.password}
+            >
+              <PasswordInput
+                showToggle={false}
+                className="h-11"
+                id="password"
+                name="password"
+                autoComplete="new-password"
+                placeholder="อย่างน้อย 8 ตัวอักษร"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                invalid={!!errors.password}
+              />
+            </FormField>
+            <PasswordStrengthMeter password={password} />
+          </div>
           <FormField
-            label="รหัสผ่าน"
-            htmlFor="password"
-            error={errors.password}
+            label="ยืนยันรหัสผ่าน"
+            htmlFor="confirm"
+            error={errors.confirm}
           >
             <PasswordInput
               showToggle={false}
-              id="password"
-              name="password"
+              className="h-11"
+              id="confirm"
+              name="confirm"
               autoComplete="new-password"
-              placeholder="อย่างน้อย 8 ตัวอักษร"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              invalid={!!errors.password}
+              invalid={!!errors.confirm}
             />
           </FormField>
-          <PasswordStrengthMeter password={password} />
         </div>
-        <FormField
-          label="ยืนยันรหัสผ่าน"
-          htmlFor="confirm"
-          error={errors.confirm}
-        >
-          <PasswordInput
-            showToggle={false}
-            id="confirm"
-            name="confirm"
-            autoComplete="new-password"
-            invalid={!!errors.confirm}
-          />
-        </FormField>
 
-        <div className="border-border bg-muted flex flex-col gap-3.5 rounded-xl border p-4">
+        <div className="border-border bg-muted flex flex-col gap-3 rounded-xl border p-3.5">
           <div className="flex flex-col gap-1.5">
             <Checkbox
               name="terms"
@@ -207,7 +215,7 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
           </div>
         </div>
 
-        <Button type="submit" size="lg" loading={loading} className="h-[52px]">
+        <Button type="submit" size="lg" loading={loading} className="h-12">
           สร้างบัญชีและรับรหัสยืนยัน
         </Button>
       </form>

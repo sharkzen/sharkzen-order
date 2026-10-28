@@ -1,7 +1,7 @@
 import { Section } from "@/components/layout/section";
 import { SectionHeading } from "@/components/layout/section-heading";
 import { Stagger, StaggerItem } from "@/components/motion/stagger";
-import { STEPS } from "../data";
+import { STEPS } from "@/features/landing/data";
 
 export function HowItWorks() {
   return (

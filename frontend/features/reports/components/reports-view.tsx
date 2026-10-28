@@ -1,17 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Segmented } from "@/features/table-management/components/segmented";
-import { REPORT_END_DATE, UPDATED_AT } from "../data/reports";
-import { exportSalesCsv } from "../lib/export-csv";
+import { exportSalesCsv } from "@/features/reports/lib/export-csv";
 import {
   formatPeriod,
   methodTotals,
   splitPeriods,
   summarize,
   topMenus,
-} from "../lib/report-utils";
-import type { DailySales, RangeDays } from "../types";
+} from "@/features/reports/lib/report-utils";
+import type { DailySales, RangeDays } from "@/features/reports/types";
 import { PaymentMixCard } from "./payment-mix-card";
 import { PeakHoursCard } from "./peak-hours-card";
 import { ReportsPageHeader } from "./reports-page-header";
@@ -25,13 +24,23 @@ const RANGE_OPTIONS: { value: RangeDays; label: string }[] = [
   { value: 30, label: "30 วัน" },
 ];
 
+export { RANGE_OPTIONS };
+
+interface ReportsViewProps {
+  /** ข้อมูลรายวันเรียงเก่าไปใหม่ ยาวอย่างน้อย 2 เท่าของ range เพื่อเทียบช่วงก่อนหน้า */
+  days: DailySales[];
+  range: RangeDays;
+  onRangeChange: (range: RangeDays) => void;
+  firstHour: number;
+  hourCount: number;
+  updatedAt: string;
+}
+
 /**
- * พื้นที่ทำงานของหน้ารายงานยอดขาย (client เพราะมีตัวเลือกช่วงเวลา)
+ * พื้นที่ทำงานของหน้ารายงานยอดขาย (ไม่ดึงข้อมูลเอง จึงใช้เรนเดอร์เป็น skeleton ได้)
  * ทุกส่วนคำนวณจากข้อมูลรายวันชุดเดียว เปลี่ยนช่วงเวลาแล้วตัวเลขและกราฟเปลี่ยนพร้อมกัน
  */
-export function ReportsWorkspace({ days }: { days: DailySales[] }) {
-  const [range, setRange] = useState<RangeDays>(7);
-
+export function ReportsView({ days, range, onRangeChange, firstHour, hourCount, updatedAt }: ReportsViewProps) {
   const report = useMemo(() => {
     const { current, previous } = splitPeriods(days, range);
     return {
@@ -43,8 +52,9 @@ export function ReportsWorkspace({ days }: { days: DailySales[] }) {
     };
   }, [days, range]);
 
-  const from = report.current[0].date;
-  const periodLabel = formatPeriod(from, REPORT_END_DATE);
+  const from = report.current[0]?.date ?? "";
+  const to = report.current[report.current.length - 1]?.date ?? "";
+  const periodLabel = from ? formatPeriod(from, to) : "";
 
   return (
     <div className="flex w-full flex-col gap-5 sm:gap-6">
@@ -52,7 +62,7 @@ export function ReportsWorkspace({ days }: { days: DailySales[] }) {
         onExport={() =>
           exportSalesCsv(
             report.current,
-            `ยอดขาย-${from}-ถึง-${REPORT_END_DATE}.csv`,
+            `ยอดขาย-${from}-ถึง-${to}.csv`,
           )
         }
       />
@@ -63,7 +73,7 @@ export function ReportsWorkspace({ days }: { days: DailySales[] }) {
             label="ช่วงเวลาของรายงาน"
             value={range}
             options={RANGE_OPTIONS}
-            onChange={setRange}
+            onChange={onRangeChange}
           />
         </div>
         <p className="text-muted-foreground text-[13px]">{periodLabel}</p>
@@ -77,7 +87,7 @@ export function ReportsWorkspace({ days }: { days: DailySales[] }) {
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <RevenueTrendCard key={range} days={report.current} />
-        <PeakHoursCard days={report.current} />
+        <PeakHoursCard days={report.current} firstHour={firstHour} hourCount={hourCount} />
       </div>
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -86,7 +96,7 @@ export function ReportsWorkspace({ days }: { days: DailySales[] }) {
       </div>
 
       <p className="text-muted-foreground text-[11px]">
-        อัปเดตล่าสุด {UPDATED_AT} •
+        อัปเดตล่าสุด {updatedAt} • หน้านี้อัปเดตเองเมื่อมีการชำระเงินใหม่ •
         ยอดขายนับเฉพาะคำสั่งซื้อที่ชำระแล้วและไม่ถูกยกเลิก
       </p>
     </div>

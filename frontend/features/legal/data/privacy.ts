@@ -1,4 +1,4 @@
-import { LEGAL_CONTACT, type LegalDocument } from "../types";
+import { LEGAL_CONTACT, type LegalDocument } from "@/features/legal/types";
 
 export const PRIVACY: LegalDocument = {
   title: "นโยบายความเป็นส่วนตัว",

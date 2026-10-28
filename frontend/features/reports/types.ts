@@ -12,16 +12,11 @@ export interface HourSales {
 export interface DailySales {
   /** วันที่รูปแบบ YYYY-MM-DD */
   date: string;
-  /** เรียงตามชั่วโมงเปิดร้านเริ่มจากชั่วโมงแรก (HOURS) */
+  /** เรียงตามชั่วโมงเริ่มจากชั่วโมงแรกของช่วงที่แสดง (firstHour ของรายงาน) */
   hours: HourSales[];
-  /** จำนวนจานที่ขายได้ ลำดับเดียวกับ MENU_ITEMS */
-  menu: number[];
+  /** เมนูที่ขายได้ในวันนั้น */
+  menu: TopMenu[];
   methods: Record<PaymentMethod, number>;
-}
-
-export interface MenuItemInfo {
-  name: string;
-  price: number;
 }
 
 export interface PeriodSummary {

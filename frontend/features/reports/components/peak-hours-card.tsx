@@ -4,14 +4,13 @@ import { useMemo, useState } from "react";
 import { SectionCard } from "@/features/dashboard/components/shared/section-card";
 import { formatNumber } from "@/features/dashboard/lib/format";
 import { cn } from "@/lib/cn";
-import { HOURS } from "../data/reports";
 import {
   WEEKDAY_LONG,
   WEEKDAY_SHORT,
   buildHeatmap,
   formatHourRange,
-} from "../lib/report-utils";
-import type { DailySales, HeatCell } from "../types";
+} from "@/features/reports/lib/report-utils";
+import type { DailySales, HeatCell } from "@/features/reports/types";
 
 /** สีช่องจากสีหลักตามสัดส่วนยอดขาย (ช่องที่ขายน้อยสุดยังเห็นเป็นช่องจางๆ) */
 function cellColor(average: number, max: number) {
@@ -21,8 +20,17 @@ function cellColor(average: number, max: number) {
 }
 
 /** ตารางความร้อนช่วงเวลาขายดี: แถวคือวันในสัปดาห์ คอลัมน์คือชั่วโมง ใช้วางแผนจัดคนและเตรียมของ */
-export function PeakHoursCard({ days }: { days: DailySales[] }) {
-  const cells = useMemo(() => buildHeatmap(days), [days]);
+export function PeakHoursCard({
+  days,
+  firstHour,
+  hourCount,
+}: {
+  days: DailySales[];
+  firstHour: number;
+  hourCount: number;
+}) {
+  const hours = useMemo(() => Array.from({ length: hourCount }, (_, i) => firstHour + i), [firstHour, hourCount]);
+  const cells = useMemo(() => buildHeatmap(days, firstHour, hourCount), [days, firstHour, hourCount]);
   const max = Math.max(...cells.map((cell) => cell.average));
   const best = cells.find((cell) => cell.average === max) ?? cells[0];
   const [hovered, setHovered] = useState<HeatCell | null>(null);
@@ -46,12 +54,12 @@ export function PeakHoursCard({ days }: { days: DailySales[] }) {
         <div
           className="grid min-w-[440px] gap-[3px]"
           style={{
-            gridTemplateColumns: `36px repeat(${HOURS.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `36px repeat(${hours.length}, minmax(0, 1fr))`,
           }}
           onMouseLeave={() => setHovered(null)}
         >
           <span aria-hidden />
-          {HOURS.map((hour) => (
+          {hours.map((hour) => (
             <span
               key={hour}
               aria-hidden

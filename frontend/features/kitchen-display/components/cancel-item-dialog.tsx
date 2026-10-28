@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Info, Minus, Plus } from "lucide-react";
 import { Button, Dialog } from "@/components/ui";
-import { KITCHEN_CANCEL_REASONS, activeQuantity } from "../lib/kitchen-utils";
-import type { KitchenItem, KitchenOrder } from "../types";
+import { KITCHEN_CANCEL_REASONS, activeQuantity } from "@/features/kitchen-display/lib/kitchen-utils";
+import type { KitchenItem, KitchenOrder } from "@/features/kitchen-display/types";
 import { ReasonPicker } from "./reason-picker";
 
 export interface ItemCancelTarget {
@@ -43,7 +43,7 @@ function CancelItemForm({
           ยกเลิกเมนู “{target.item.name}”
         </p>
         <p className="text-muted-foreground text-sm">
-          {target.order.id} • โต๊ะ {target.order.table}{" "}
+          {target.order.code} • โต๊ะ {target.order.table}{" "}
           ส่วนรายการอื่นในออเดอร์นี้ยังทำต่อ
         </p>
       </div>

@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { formatNumber } from "@/features/dashboard/lib/format";
-import { BILL_DATE } from "../data/bills";
-import { mergeLines } from "../lib/bill-utils";
-import type { CheckoutConfig, Payment, TableBill } from "../types";
+import { mergeLines } from "@/features/cashier/lib/bill-utils";
+import type { CheckoutConfig, Payment, TableBill } from "@/features/cashier/types";
 
 interface ReceiptSheetProps {
   bill: TableBill;
@@ -58,7 +57,7 @@ export function ReceiptSheet({
 
         <Divider />
         <Pair label="โต๊ะ" value={bill.tableName} />
-        <Pair label="วันที่" value={`${BILL_DATE} ${payment.paidAt} น.`} />
+        <Pair label="วันที่" value={`${payment.paidDate ?? ""} ${payment.paidAt} น.`.trim()} />
         <Divider />
 
         {lines.map((line) => (

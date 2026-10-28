@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { ChevronRight } from "lucide-react";
-import { SIDEBAR_NAV } from "../../data/navigation";
+import { SIDEBAR_NAV } from "@/features/dashboard/data/navigation";
 
 /** เส้นทางหน้า: "จัดการร้าน > ชื่อหน้าปัจจุบัน" หาชื่อหน้าจากเมนูนำทาง */
 export function TopbarBreadcrumb() {

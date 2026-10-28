@@ -15,7 +15,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   StatusFilter,
-} from "../types";
+} from "@/features/order-management/types";
 
 type Tone = NonNullable<BadgeProps["tone"]>;
 

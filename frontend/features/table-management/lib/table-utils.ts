@@ -4,7 +4,7 @@ import type {
   EditValues,
   StatusFilter,
   TableSession,
-} from "../types";
+} from "@/features/table-management/types";
 
 export const MAX_CREATE = 50;
 
@@ -41,9 +41,9 @@ export function summarize(tables: DiningTable[]) {
   return { total: tables.length, open, closed: tables.length - open };
 }
 
-/** ลิงก์ที่ฝังใน QR ของโต๊ะ (ถาวรต่อโต๊ะ ใช้สั่งได้เมื่อโต๊ะมีรอบที่เปิดอยู่เท่านั้น) */
+/** ลิงก์ที่ฝังใน QR ของโต๊ะ (token ถาวรต่อโต๊ะ ใช้สั่งได้เมื่อโต๊ะมีรอบที่เปิดอยู่เท่านั้น) */
 export function tableLink(table: DiningTable, origin: string) {
-  return `${origin}/t/${table.id}`;
+  return `${origin}/t/${table.token}`;
 }
 
 const SESSION_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";

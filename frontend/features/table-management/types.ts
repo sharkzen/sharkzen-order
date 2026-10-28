@@ -9,6 +9,8 @@ export interface TableSession {
 export interface DiningTable {
   /** รหัสถาวรของโต๊ะ ฝังอยู่ใน QR ที่ติดโต๊ะ จึงไม่เปลี่ยนแม้เปิด-ปิดโต๊ะ */
   id: string;
+  /** token เข้ารหัสจาก backend ฝังใน QR (ร้าน+โต๊ะ) ลูกค้าเข้า /t/{token} */
+  token: string;
   /** ชื่อที่ลูกค้าและพนักงานเห็น เช่น "โต๊ะ 1" */
   name: string;
   zone: string;

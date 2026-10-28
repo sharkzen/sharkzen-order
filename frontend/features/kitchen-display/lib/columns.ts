@@ -2,7 +2,7 @@ import { CheckCheck, ConciergeBell, Play } from "lucide-react";
 import type { ComponentType } from "react";
 import { CookingPotIcon } from "@/components/icons/cooking-pot";
 import { RingingBellIcon } from "@/components/icons/ringing-bell";
-import type { KitchenStatus } from "../types";
+import type { KitchenStatus } from "@/features/kitchen-display/types";
 
 type Icon = ComponentType<{ className?: string }>;
 

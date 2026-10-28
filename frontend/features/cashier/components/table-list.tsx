@@ -1,7 +1,7 @@
 import { Search, SearchX, Utensils } from "lucide-react";
-import { EmptyState, Input } from "@/components/ui";
+import { EmptyState, Input, Select } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import type { CheckoutConfig, TableBill } from "../types";
+import type { CheckoutConfig, TableBill } from "@/features/cashier/types";
 import { TableTile } from "./table-tile";
 
 export type TableView = "due" | "all";
@@ -14,6 +14,10 @@ interface TableListProps {
   dueCount: number;
   totalCount: number;
   selectedId: string | null;
+  /** โซนที่มีโต๊ะเปิดอยู่ ใช้กรอง ("" = ทุกโซน) */
+  zones: string[];
+  zone: string;
+  onZoneChange: (zone: string) => void;
   onViewChange: (view: TableView) => void;
   onQueryChange: (query: string) => void;
   onSelect: (bill: TableBill) => void;
@@ -28,6 +32,9 @@ export function TableList({
   dueCount,
   totalCount,
   selectedId,
+  zones,
+  zone,
+  onZoneChange,
   onViewChange,
   onQueryChange,
   onSelect,
@@ -71,6 +78,16 @@ export function TableList({
             );
           })}
         </div>
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:justify-end">
+        {zones.length > 1 && (
+          <Select
+            aria-label="กรองตามโซน"
+            className="sm:w-[180px]"
+            value={zone}
+            onChange={onZoneChange}
+            options={[{ value: "", label: "ทุกโซน" }, ...zones.map((name) => ({ value: name, label: name }))]}
+          />
+        )}
         <div className="relative sm:w-[220px]">
           <Search
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -85,10 +102,11 @@ export function TableList({
             className="h-11 pl-9"
           />
         </div>
+        </div>
       </div>
 
       {bills.length > 0 ? (
-        <ul className="scroll-thin grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(210px,1fr))] content-start gap-3 overflow-y-auto p-1 pr-2">
+        <ul className="scroll-thin grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(230px,1fr))] content-start gap-3 overflow-y-auto p-1 pr-2">
           {bills.map((bill) => (
             <li key={bill.tableId}>
               <TableTile

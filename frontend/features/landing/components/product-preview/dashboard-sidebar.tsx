@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { cn } from "@/lib/cn";
-import { DEMO_RESTAURANT } from "../../data";
+import { DEMO_RESTAURANT } from "@/features/landing/data";
 
 const ITEMS: { icon: LucideIcon; label: string; active?: boolean }[] = [
   { icon: LayoutDashboard, label: "ภาพรวมร้านอาหาร", active: true },

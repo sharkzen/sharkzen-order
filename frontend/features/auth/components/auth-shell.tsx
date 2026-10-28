@@ -7,7 +7,8 @@ import { ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/layout/logo";
 import { buttonVariants } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import { getAuthMode } from "../lib/auth-mode";
+import { cn } from "@/lib/cn";
+import { getAuthMode } from "@/features/auth/lib/auth-mode";
 import { AuthShowcase } from "./auth-showcase";
 import { AuthSwitch } from "./auth-switch";
 
@@ -21,6 +22,8 @@ export function AuthShell({ children }: { children: ReactNode }) {
   // หน้าลืม/ตั้งรหัสผ่านใหม่ไม่ต้องมีสวิตช์เข้าสู่ระบบ/สมัครสมาชิก
   const showSwitch =
     pathname.startsWith(ROUTES.login) || pathname.startsWith(ROUTES.register);
+
+  const isRegister = pathname.startsWith(ROUTES.register);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -37,12 +40,26 @@ export function AuthShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <main className="bg-background relative isolate flex flex-1 items-center overflow-hidden px-5 py-10 md:px-12 lg:px-24 lg:py-16">
+      <main className="bg-background relative isolate flex flex-1 items-center overflow-hidden px-5 py-8 md:px-12 lg:px-16 lg:py-8">
         <div aria-hidden className="bg-grid absolute inset-0 -z-10" />
-        <div className="mx-auto grid w-full max-w-[1248px] items-center gap-12 lg:grid-cols-[1fr_480px] lg:gap-16">
+        <div
+          className={cn(
+            "mx-auto grid w-full max-w-[1248px] items-center gap-10 lg:gap-14",
+            isRegister
+              ? "lg:grid-cols-[1fr_680px]"
+              : "lg:grid-cols-[1fr_480px]",
+          )}
+        >
           <AuthShowcase mode={mode} />
 
-          <div className="border-border bg-surface shadow-float mx-auto flex w-full max-w-[480px] flex-col gap-7 rounded-xl border p-6 sm:p-9">
+          <div
+            className={cn(
+              "border-border bg-surface shadow-float mx-auto flex w-full flex-col rounded-xl border p-6",
+              isRegister
+                ? "max-w-[680px] gap-5 sm:p-8"
+                : "max-w-[480px] gap-7 sm:p-9",
+            )}
+          >
             {showSwitch && <AuthSwitch mode={mode} />}
             {children}
           </div>

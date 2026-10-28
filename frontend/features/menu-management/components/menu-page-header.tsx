@@ -1,7 +1,11 @@
-import { Folder, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui";
 
-export function MenuPageHeader() {
+interface MenuPageHeaderProps {
+  onAddItem: () => void;
+}
+
+export function MenuPageHeader({ onAddItem }: MenuPageHeaderProps) {
   return (
     <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
       <div className="flex flex-col gap-1">
@@ -9,19 +13,13 @@ export function MenuPageHeader() {
           จัดการเมนูอาหาร
         </h1>
         <p className="text-muted-foreground text-[13px]">
-          อัปเดตรูป ราคา และความพร้อมขาย ให้ลูกค้าเห็นเมนูที่ถูกต้องเสมอ
+          จัดหมวดหมู่และลำดับเมนูด้วยการลาก อัปเดตรูป ราคา และความพร้อมขาย
         </p>
       </div>
-      <div className="flex flex-wrap gap-3">
-        <Button variant="outline">
-          <Folder className="size-[18px]" aria-hidden />
-          จัดการหมวดหมู่
-        </Button>
-        <Button>
-          <Plus className="size-[18px]" aria-hidden />
-          เพิ่มเมนูอาหาร
-        </Button>
-      </div>
+      <Button onClick={onAddItem}>
+        <Plus className="size-[18px]" aria-hidden />
+        เพิ่มเมนูอาหาร
+      </Button>
     </div>
   );
 }

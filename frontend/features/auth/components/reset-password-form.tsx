@@ -8,7 +8,7 @@ import { Button, FormField } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { toApiError } from "@/lib/http/api-error";
 import { notify } from "@/lib/toast";
-import { authApi } from "../lib/auth-api";
+import { authApi } from "@/features/auth/lib/auth-api";
 import { PasswordInput } from "./password-input";
 import { PasswordStrengthMeter } from "./password-strength-meter";
 

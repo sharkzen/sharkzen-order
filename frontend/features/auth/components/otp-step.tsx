@@ -5,7 +5,7 @@ import { ArrowLeft, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui";
 import { toApiError } from "@/lib/http/api-error";
 import { notify } from "@/lib/toast";
-import { authApi, maskEmail, type SessionUser } from "../lib/auth-api";
+import { authApi, maskEmail, type SessionUser } from "@/features/auth/lib/auth-api";
 import { OtpInput } from "./otp-input";
 
 const RESEND_SECONDS = 60;

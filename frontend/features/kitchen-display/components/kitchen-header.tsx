@@ -12,9 +12,9 @@ import {
 import { Logo } from "@/components/layout/logo";
 import { Badge, Button } from "@/components/ui";
 import { useFullscreen } from "@/hooks/use-fullscreen";
+import { useSocketConnected } from "@/lib/socket";
 import { useOnline } from "@/hooks/use-online";
 import { cn } from "@/lib/cn";
-import { KITCHEN } from "../data/kitchen-orders";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
   weekday: "long",
@@ -49,6 +49,8 @@ export function formatHourMinute(now: Date | null) {
 }
 
 interface KitchenHeaderProps {
+  shopName: string;
+  branch: string;
   now: Date | null;
   soundOn: boolean;
   onToggleSound: () => void;
@@ -57,12 +59,17 @@ interface KitchenHeaderProps {
 
 /** แถบบนของหน้าจอครัว: ร้าน นาฬิกาสด การเชื่อมต่อ เสียงแจ้งเตือน (เปิด/ปิดและตั้งค่า) และเต็มหน้าจอ */
 export function KitchenHeader({
+  shopName,
+  branch,
   now,
   soundOn,
   onToggleSound,
   onOpenSettings,
 }: KitchenHeaderProps) {
-  const online = useOnline();
+  // "ออนไลน์" = อินเทอร์เน็ตใช้ได้ และเชื่อมต่อรับออเดอร์สดจากเซิร์ฟเวอร์อยู่
+  const browserOnline = useOnline();
+  const socketConnected = useSocketConnected();
+  const online = browserOnline && socketConnected;
   const fullscreen = useFullscreen();
 
   return (
@@ -71,10 +78,10 @@ export function KitchenHeader({
         <Logo size={32} />
         <div className="flex flex-col leading-[1.5]">
           <span className="text-foreground text-sm font-semibold">
-            {KITCHEN.shop}
+            {shopName}
           </span>
           <span className="text-muted-foreground text-[11px]">
-            {KITCHEN.branch}
+            {branch}
           </span>
         </div>
       </div>

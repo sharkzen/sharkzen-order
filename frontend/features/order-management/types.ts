@@ -7,17 +7,32 @@ export type PaymentStatus = "unpaid" | "paid" | "refunded";
 export type PaymentMethod = "cash" | "transfer" | "counter";
 
 export interface OrderItem {
+  id: string;
   name: string;
+  /** ตัวเลือกที่ลูกค้าเลือก (ราคาต่อหน่วยรวมตัวเลือกแล้ว) */
+  options: { group: string; name: string; price: number }[];
+  /** หมายเหตุของรายการนี้จากลูกค้า */
+  note: string;
+  /** ราคาต่อหน่วย (บาท) */
+  price: number;
   quantity: number;
+  /** จำนวนที่ถูกยกเลิกไปแล้ว ที่เหลือ = quantity - cancelledQty */
+  cancelledQty: number;
+  cancelReason: string | null;
 }
 
 export interface ManagedOrder {
+  /** รหัสในระบบ ใช้เรียก API */
   id: string;
+  /** รหัสที่แสดง เช่น #1042 */
+  code: string;
   /** เวลาที่สั่ง รูปแบบ HH:mm */
   time: string;
   table: string;
   items: OrderItem[];
   total: number;
+  notes: string[];
+  cancelReason: string | null;
   paymentStatus: PaymentStatus;
   paymentMethod: PaymentMethod;
   status: FoodStatus;

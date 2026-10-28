@@ -1,11 +1,10 @@
-import { FIRST_HOUR, HOURS, MENU_ITEMS } from "../data/reports";
 import type {
   DailySales,
   HeatCell,
   PeriodSummary,
   RangeDays,
   TopMenu,
-} from "../types";
+} from "@/features/reports/types";
 
 const THAI_MONTHS_SHORT = [
   "ม.ค.",
@@ -79,7 +78,7 @@ export function summarize(days: DailySales[]): PeriodSummary {
   const revenue = days.reduce((sum, day) => sum + dayRevenue(day), 0);
   const orders = days.reduce((sum, day) => sum + dayOrders(day), 0);
   const dishes = days.reduce(
-    (sum, day) => sum + day.menu.reduce((a, b) => a + b, 0),
+    (sum, day) => sum + day.menu.reduce((n, menu) => n + menu.quantity, 0),
     0,
   );
   return {
@@ -97,12 +96,15 @@ export function changePercent(current: number, previous: number) {
 }
 
 export function topMenus(days: DailySales[], limit = 6): TopMenu[] {
-  return MENU_ITEMS.map((item, index) => {
-    const quantity = days.reduce((sum, day) => sum + day.menu[index], 0);
-    return { name: item.name, quantity, revenue: quantity * item.price };
-  })
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, limit);
+  const merged = new Map<string, TopMenu>();
+  for (const menu of days.flatMap((day) => day.menu)) {
+    const found = merged.get(menu.name);
+    if (found) {
+      found.quantity += menu.quantity;
+      found.revenue += menu.revenue;
+    } else merged.set(menu.name, { ...menu });
+  }
+  return [...merged.values()].sort((a, b) => b.revenue - a.revenue).slice(0, limit);
 }
 
 export function methodTotals(days: DailySales[]) {
@@ -117,8 +119,8 @@ export function methodTotals(days: DailySales[]) {
 }
 
 /** ยอดขายเฉลี่ยต่อวันของทุกช่อง (วันในสัปดาห์ × ชั่วโมง) */
-export function buildHeatmap(days: DailySales[]): HeatCell[] {
-  const sums = Array.from({ length: 7 }, () => HOURS.map(() => 0));
+export function buildHeatmap(days: DailySales[], firstHour: number, hourCount: number): HeatCell[] {
+  const sums = Array.from({ length: 7 }, () => Array<number>(hourCount).fill(0));
   const counts = Array<number>(7).fill(0);
 
   for (const day of days) {
@@ -132,7 +134,7 @@ export function buildHeatmap(days: DailySales[]): HeatCell[] {
   return sums.flatMap((row, weekday) =>
     row.map((sum, index) => ({
       weekday,
-      hour: FIRST_HOUR + index,
+      hour: firstHour + index,
       average: counts[weekday] > 0 ? Math.round(sum / counts[weekday]) : 0,
     })),
   );

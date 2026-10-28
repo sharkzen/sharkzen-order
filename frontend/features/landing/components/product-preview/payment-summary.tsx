@@ -1,5 +1,5 @@
 import { AnimatedBar } from "@/components/motion/animated-bar";
-import { DAILY_REVENUE, PAYMENT_METHODS } from "../../data";
+import { DAILY_REVENUE, PAYMENT_METHODS } from "@/features/landing/data";
 
 /** สรุปยอดชำระเงินวันนี้แยกตามช่องทาง */
 export function PaymentSummary() {

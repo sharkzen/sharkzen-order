@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Spinner } from "@/components/ui";
+import { Button, PageLoader } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import {
   DEFAULT_PLAN_ID,
@@ -13,8 +13,11 @@ import {
   type PlanId,
 } from "@/features/landing/data";
 import { notify } from "@/lib/toast";
-import { authApi } from "../lib/auth-api";
+import { authApi } from "@/features/auth/lib/auth-api";
 import { PlanPicker } from "./plan-picker";
+
+// TODO: ชั่วคราว แสดง loader ตลอดเพื่อดูขนาด ตั้งเป็น false เมื่อเสร็จ
+const PREVIEW_LOADER = false;
 
 interface PlanOnboardingProps {
   /** ค่าที่เลือกมาจากหน้าแรก (ถ้ามี) ใช้เป็นค่าเริ่มต้น */
@@ -58,23 +61,16 @@ export function PlanOnboarding({ initialPlan, initialBilling }: PlanOnboardingPr
     }
   }
 
-  if (!ready) {
-    return (
-      <div className="flex justify-center py-24">
-        <Spinner />
-      </div>
-    );
-  }
-
   const plan = findPlan(planId) ?? PRICING_PLANS[0];
 
   return (
-    <div className="flex flex-col gap-7">
+    <div className="flex flex-col gap-8 lg:gap-10">
+      {(!ready || PREVIEW_LOADER) && <PageLoader />}
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="font-display text-foreground text-[28px] leading-tight font-semibold">
+        <h1 className="font-display text-foreground text-2xl leading-tight font-semibold sm:text-3xl lg:text-4xl">
           เลือกแพ็กเกจที่เหมาะกับร้านคุณ
         </h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground mx-auto max-w-xl text-sm sm:text-base">
           ทดลองใช้ฟรี {TRIAL_DAYS} วัน ไม่ต้องใช้บัตรเครดิต เปลี่ยนแพ็กเกจได้ภายหลัง
         </p>
       </div>
@@ -84,20 +80,21 @@ export function PlanOnboarding({ initialPlan, initialBilling }: PlanOnboardingPr
         billing={billing}
         onPlanChange={setPlanId}
         onBillingChange={setBilling}
+        footer={
+          <div className="flex flex-col items-center gap-3">
+            <Button size="lg" className="h-[52px] w-full" loading={saving} onClick={confirm}>
+              เริ่มทดลองใช้ฟรี
+            </Button>
+            <button
+              type="button"
+              onClick={() => router.push(ROUTES.dashboard)}
+              className="text-muted-foreground hover:text-foreground cursor-pointer text-sm transition-colors"
+            >
+              ตัดสินใจภายหลัง
+            </button>
+          </div>
+        }
       />
-
-      <div className="flex flex-col items-center gap-3">
-        <Button size="lg" className="h-[52px] w-full" loading={saving} onClick={confirm}>
-          เริ่มทดลองใช้ฟรี
-        </Button>
-        <button
-          type="button"
-          onClick={() => router.push(ROUTES.dashboard)}
-          className="text-muted-foreground hover:text-foreground cursor-pointer text-sm transition-colors"
-        >
-          ตัดสินใจภายหลัง
-        </button>
-      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { LegalDocument } from "../types";
+import type { LegalDocument } from "@/features/legal/types";
 
 export const TERMS: LegalDocument = {
   title: "ข้อกำหนดการใช้งาน",

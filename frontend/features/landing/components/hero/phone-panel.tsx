@@ -6,7 +6,7 @@ import {
   DEMO_ORDER_TOTAL,
   DEMO_RESTAURANT,
   DEMO_TABLE,
-} from "../../data";
+} from "@/features/landing/data";
 
 /** จอมือถือของลูกค้า: เลือกเมนูแล้วกดสั่ง */
 export function PhonePanel({ sent }: { sent: boolean }) {

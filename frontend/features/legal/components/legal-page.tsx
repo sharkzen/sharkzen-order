@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
-import { LEGAL_UPDATED, type LegalDocument } from "../types";
+import { LEGAL_UPDATED, type LegalDocument } from "@/features/legal/types";
 
 /** หน้าเอกสารทางกฎหมาย: สารบัญติดข้างซ้าย (จอใหญ่) เนื้อหาอ่านสบายความกว้างจำกัด */
 export function LegalPage({ doc }: { doc: LegalDocument }) {

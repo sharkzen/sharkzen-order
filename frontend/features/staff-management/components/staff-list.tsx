@@ -2,8 +2,8 @@ import { Ban, KeyRound, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui";
 import type { BadgeProps } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import { accessSummary } from "../lib/permission-utils";
-import type { Role, StaffMember, StaffStatus } from "../types";
+import { accessSummary } from "@/features/staff-management/lib/permission-utils";
+import type { Role, StaffMember, StaffStatus } from "@/features/staff-management/types";
 
 const STATUS_BADGE: Record<
   StaffStatus,

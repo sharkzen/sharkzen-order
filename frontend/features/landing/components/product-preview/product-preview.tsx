@@ -3,7 +3,7 @@ import { Section } from "@/components/layout/section";
 import { SectionHeading } from "@/components/layout/section-heading";
 import { FadeIn } from "@/components/motion/fade-in";
 import { Badge } from "@/components/ui";
-import { DASHBOARD_METRICS } from "../../data";
+import { DASHBOARD_METRICS } from "@/features/landing/data";
 import { DashboardSidebar } from "./dashboard-sidebar";
 import { PaymentSummary } from "./payment-summary";
 import { RevenueChart } from "./revenue-chart";

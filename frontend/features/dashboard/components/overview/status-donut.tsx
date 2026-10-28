@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
-import { STATUS_COLOR } from "../../lib/order-status";
-import type { OrderStatusCount } from "../../types";
+import { STATUS_COLOR } from "@/features/dashboard/lib/order-status";
+import type { OrderStatusCount } from "@/features/dashboard/types";
 
 const SIZE = 154;
 const STROKE = 14;

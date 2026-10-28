@@ -14,6 +14,7 @@ export const ROUTES = {
   reports: "/reports",
   staff: "/staff",
   settings: "/settings",
+  plan: "/plan",
   orders: "/orders",
   cashier: "/cashier",
   order: (id: string | number) => `/orders/${id}`,

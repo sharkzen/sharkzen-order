@@ -9,9 +9,9 @@ import {
   pageLayout,
   saveSettings,
   type PrintSettings,
-} from "../lib/print-settings";
-import { tableLink } from "../lib/table-utils";
-import type { DiningTable } from "../types";
+} from "@/features/table-management/lib/print-settings";
+import { tableLink } from "@/features/table-management/lib/table-utils";
+import type { DiningTable } from "@/features/table-management/types";
 import { PrintControls } from "./print-controls";
 import { QrCard } from "./qr-card";
 
