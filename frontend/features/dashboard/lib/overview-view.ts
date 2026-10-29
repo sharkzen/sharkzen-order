@@ -149,7 +149,7 @@ export function toRecent(data: OverviewResponse): RecentOrder[] {
       month: "short",
     });
     return {
-      id: `#${order.number}`,
+      id: order.code,
       time: multiDay ? `${day} ${time}` : time,
       table: order.table,
       total: order.total,

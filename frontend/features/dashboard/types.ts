@@ -10,6 +10,10 @@ export interface NavItem {
   count?: number;
   /** ชื่อหน้าในเส้นทางหน้า ถ้าต่างจากชื่อเมนู */
   pageTitle?: string;
+  /** สิทธิ์ที่พนักงานต้องมีเพื่อเห็นเมนูนี้ (เจ้าของเห็นทุกเมนู) */
+  permission?: string;
+  /** เฉพาะเจ้าของร้าน (พนักงานไม่เห็น) เช่น แพ็กเกจและการเงิน */
+  ownerOnly?: boolean;
 }
 
 export interface Metric {
@@ -52,6 +56,8 @@ export interface OrderStatusCount {
 
 export interface PopularMenu {
   name: string;
+  /** รูปเมนู ("" = ไม่มีรูป) */
+  image: string;
   quantity: number;
   revenue: number;
 }

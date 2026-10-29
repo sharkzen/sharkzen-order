@@ -1,5 +1,10 @@
 export interface BillLine {
+  /** id รายการในออเดอร์ ใช้ปรับจำนวน/ลบ */
+  id: string;
   name: string;
+  /** ตัวเลือกที่เลือก เช่น หวานน้อย */
+  options: string[];
+  note: string;
   quantity: number;
   /** ราคาต่อหน่วย (บาท) ณ เวลาที่สั่ง */
   unitPrice: number;
@@ -8,11 +13,13 @@ export interface BillLine {
 /** คำสั่งซื้อหนึ่งรอบของโต๊ะ (ลูกค้าโต๊ะเดียวกันสั่งได้หลายรอบ) */
 export interface BillRound {
   orderId: string;
-  /** เลขออเดอร์ที่แสดง เช่น 12 → "#12" */
-  number: number;
+  /** รหัสออเดอร์ที่แสดงและใช้ค้นหา เช่น SZ-261029-K7M2QX */
+  code: string;
   /** เวลาที่สั่ง HH:mm */
   time: string;
   lines: BillLine[];
+  /** หมายเหตุของลูกค้าทั้งออเดอร์ */
+  notes: string[];
   /** ครัวทำเสร็จและเสิร์ฟครบแล้วหรือยัง */
   served: boolean;
 }

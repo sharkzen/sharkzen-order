@@ -30,13 +30,24 @@ const toMember = ({ lastActiveAt, ...member }: ApiStaff): StaffMember => ({
 export interface StaffData {
   roles: Role[];
   staff: StaffMember[];
+  /** รหัสร้านที่พนักงานใช้กรอกตอนเข้าสู่ระบบ */
+  shopCode: string;
 }
 
 export const staffApi = {
   overview: (signal?: AbortSignal) =>
     clientHttp
-      .get<{ roles: Role[]; staff: ApiStaff[] }>("/staff", { signal })
-      .then(({ data }) => ({ roles: data.roles, staff: data.staff.map(toMember) })),
+      .get<{ roles: Role[]; staff: ApiStaff[]; shopCode: string }>("/staff", { signal })
+      .then(({ data }) => ({ roles: data.roles, staff: data.staff.map(toMember), shopCode: data.shopCode })),
+
+  /** ตรวจชื่อผู้ใช้กับฐานข้อมูล (ซ้ำในร้านเดียวกันไหม) ถ้าซ้ำจะได้ชื่อที่เสนอให้ใช้แทน */
+  checkUsername: (username: string, exceptId?: string, signal?: AbortSignal) =>
+    clientHttp
+      .get<{ available: boolean; reason?: "invalid" | "taken"; suggestions: string[] }>("/staff/username-available", {
+        params: { username, exceptId },
+        signal,
+      })
+      .then((res) => res.data),
 
   createMember: (input: { name: string; username: string; roleId: string; password: string }) =>
     clientHttp.post<ApiStaff>("/staff/members", input).then((res) => toMember(res.data)),

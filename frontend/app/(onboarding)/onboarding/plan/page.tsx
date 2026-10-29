@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PlanOnboarding } from "@/features/auth/components/plan-onboarding";
-import { findPlan, parseBilling } from "@/features/landing/data";
+import { parseBilling } from "@/features/landing/data";
 
 export const metadata: Metadata = {
   title: "เลือกแพ็กเกจ",
@@ -16,7 +16,7 @@ export default async function OnboardingPlanPage(
 
   return (
     <PlanOnboarding
-      initialPlan={findPlan(str(plan))?.id}
+      initialPlan={str(plan)}
       initialBilling={str(billing) ? parseBilling(str(billing)) : undefined}
     />
   );

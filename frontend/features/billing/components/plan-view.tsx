@@ -4,15 +4,15 @@ import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui";
 import {
-  PRICING_PLANS,
   findPlan,
   formatBaht,
   type BillingCycle,
   type PlanId,
   type PricingPlan,
 } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 import type { BillingOverview, CheckoutChoice, Invoice, PayMethod, PlanChoice } from "@/features/billing/lib/billing-api";
-import { PLAN_LIMITS, formatDate } from "@/features/billing/lib/plan-status";
+import { formatDate } from "@/features/billing/lib/plan-status";
 import { CurrentPlanCard } from "./current-plan-card";
 import { InvoicesCard } from "./invoices-card";
 import { PlanCards, type PlanCardState } from "./plan-cards";
@@ -35,11 +35,12 @@ interface PlanViewProps {
 }
 
 const price = (plan: PricingPlan, billing: BillingCycle) => (billing === "yearly" ? plan.yearly : plan.monthly);
-const rank = (id: PlanId) => PRICING_PLANS.findIndex((plan) => plan.id === id);
 
 /** หน้าแพ็กเกจ (ไม่ดึงข้อมูลเอง รับข้อมูลและ actions จาก PlanWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้) */
 export function PlanView({ overview, invoices, now, actions }: PlanViewProps) {
   const { subscription: sub, usage } = overview;
+  const catalog = useCatalog();
+  const rank = (id: PlanId) => catalog?.plans.findIndex((plan) => plan.id === id) ?? -1;
   const [billing, setBilling] = useState<BillingCycle>(sub.billing);
   const [method, setMethod] = useState<PayMethod>(sub.method ?? "card");
   const [busy, setBusy] = useState<"current" | "portal" | "cancel" | PlanId | null>(null);
@@ -62,7 +63,10 @@ export function PlanView({ overview, invoices, now, actions }: PlanViewProps) {
 
   /** ลดแพ็กเกจไม่ได้ถ้าการใช้งานตอนนี้เกินเพดานของแพ็กเกจปลายทาง */
   function blockedReason(plan: PricingPlan) {
-    const limits = PLAN_LIMITS[plan.id];
+    const limits = plan.limits;
+    if (limits && usage.branches > limits.branches) {
+      return `ตอนนี้มี ${usage.branches} สาขา แพ็กเกจนี้มีได้ ${limits.branches} สาขา`;
+    }
     if (limits?.tables !== null && limits?.tables !== undefined && usage.tables > limits.tables) {
       return `ตอนนี้มี ${usage.tables} โต๊ะ ลดให้ไม่เกิน ${limits.tables} ก่อน`;
     }
@@ -101,8 +105,8 @@ export function PlanView({ overview, invoices, now, actions }: PlanViewProps) {
     else void run(plan.id, () => actions.checkout(choice));
   }
 
-  const target = changeTarget ? findPlan(changeTarget.plan) : undefined;
-  const currentPlan = findPlan(sub.plan);
+  const target = changeTarget ? findPlan(catalog, changeTarget.plan) : undefined;
+  const currentPlan = findPlan(catalog, sub.plan);
 
   return (
     <div className="flex w-full flex-col gap-5 sm:gap-6">

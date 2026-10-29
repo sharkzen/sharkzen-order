@@ -10,7 +10,6 @@ export function exportSalesCsv(days: DailySales[], fileName: string) {
     "เฉลี่ยต่อคำสั่งซื้อ (บาท)",
     "เงินสด",
     "โอนเงิน",
-    "ชำระที่เคาน์เตอร์",
   ];
   const rows = days.map((day) => {
     const orders = dayOrders(day);
@@ -22,7 +21,6 @@ export function exportSalesCsv(days: DailySales[], fileName: string) {
       orders > 0 ? Math.round(revenue / orders) : 0,
       day.methods.cash,
       day.methods.transfer,
-      day.methods.counter,
     ];
   });
 

@@ -8,6 +8,14 @@ export interface SessionUser {
   lastName: string;
   plan: string | null;
   billingCycle: "MONTHLY" | "YEARLY" | null;
+  role: "OWNER" | "ADMIN" | "STAFF";
+  /** พนักงาน = รายการสิทธิ์ของบทบาท; เจ้าของร้านและผู้ดูแลไม่มีฟิลด์นี้ (ทำได้ทุกอย่าง) */
+  permissions?: string[];
+  /** พนักงานที่ยังใช้รหัสผ่านตั้งต้นต้องเปลี่ยนก่อนใช้งาน */
+  mustChangePassword?: boolean;
+  /** ผู้ดูแลระบบ: เปิด 2FA แล้วหรือยัง และระบบบังคับหรือไม่ */
+  totpEnabled?: boolean;
+  totpRequired?: boolean;
 }
 
 export interface RegisterPayload {
@@ -31,8 +39,17 @@ export const authApi = {
 
   resendOtp: (email: string) => clientHttp.post("/auth/resend-otp", { email }),
 
-  login: (email: string, password: string, remember: boolean) =>
-    clientHttp.post<{ user: SessionUser }>("/auth/login", { email, password, remember }),
+  login: (email: string, password: string, remember: boolean, code?: string) =>
+    clientHttp.post<{ user: SessionUser }>("/auth/login", { email, password, remember, code }),
+
+  staffLogin: (shopCode: string, username: string, password: string, remember: boolean) =>
+    clientHttp.post<{ user: SessionUser }>("/auth/staff-login", { shopCode, username, password, remember }),
+
+  staffChangePassword: (currentPassword: string, newPassword: string) =>
+    clientHttp.post("/auth/staff-change-password", { currentPassword, newPassword }),
+
+  totpSetup: () => clientHttp.post<{ secret: string; otpauthUrl: string }>("/auth/totp/setup").then((r) => r.data),
+  totpEnable: (code: string) => clientHttp.post<{ user: SessionUser }>("/auth/totp/enable", { code }).then((r) => r.data),
 
   me: () => clientHttp.get<{ user: SessionUser }>("/auth/me"),
 

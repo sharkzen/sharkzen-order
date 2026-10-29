@@ -13,6 +13,8 @@ export const SocketEvent = {
   TablesChanged: "tables:changed",
   StaffChanged: "staff:changed",
   NotificationCreated: "notification:new",
+  /** ผู้ดูแลระบบแบน/ระงับ/ปลดบัญชีหรือร้านนี้ ให้ตรวจสิทธิ์ใหม่ */
+  AccessChanged: "access:changed",
 } as const;
 
 let socket: Socket | undefined;

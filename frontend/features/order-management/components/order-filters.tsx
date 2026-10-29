@@ -1,7 +1,13 @@
 import { Search } from "lucide-react";
 import { Card, DatePicker, FilterField, Input, Select } from "@/components/ui";
-import { PAYMENT_OPTIONS, STATUS_OPTIONS } from "@/features/order-management/lib/labels";
-import type { PaymentFilter, StatusFilter } from "@/features/order-management/types";
+import {
+  PAYMENT_OPTIONS,
+  STATUS_OPTIONS,
+} from "@/features/order-management/lib/labels";
+import type {
+  PaymentFilter,
+  StatusFilter,
+} from "@/features/order-management/types";
 
 interface OrderFiltersProps {
   query: string;
@@ -42,7 +48,7 @@ export function OrderFilters({
               type="search"
               value={query}
               onChange={(e) => onQueryChange(e.target.value)}
-              placeholder="ค้นหาเลขคำสั่งซื้อ หรือหมายเลขโต๊ะ"
+              placeholder="ค้นหารหัสออเดอร์ เช่น SZ-261029-K7M2QX หรือโต๊ะ "
               className="h-[46px] rounded-lg pl-11 text-sm"
             />
           </div>
@@ -50,7 +56,13 @@ export function OrderFilters({
       </div>
 
       <FilterField label="วันที่สั่งอาหาร" htmlFor="order-date">
-        <DatePicker id="order-date" size="lg" value={date} max={maxDate} onChange={onDateChange} />
+        <DatePicker
+          id="order-date"
+          size="lg"
+          value={date}
+          max={maxDate}
+          onChange={onDateChange}
+        />
       </FilterField>
 
       <FilterField label="สถานะการชำระเงิน" htmlFor="order-payment">

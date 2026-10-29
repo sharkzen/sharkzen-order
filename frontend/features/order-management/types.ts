@@ -28,6 +28,8 @@ export interface ManagedOrder {
   code: string;
   /** เวลาที่สั่ง รูปแบบ HH:mm */
   time: string;
+  /** วันที่สั่ง (มีเฉพาะผลค้นหาข้ามวัน) เช่น "29 ต.ค." */
+  date?: string;
   table: string;
   items: OrderItem[];
   total: number;

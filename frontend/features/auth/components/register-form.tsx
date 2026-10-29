@@ -5,11 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, Checkbox, FormField, Input } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
-import {
-  TRIAL_DAYS,
-  type BillingCycle,
-  type PlanId,
-} from "@/features/landing/data";
+import { type BillingCycle, type PlanId } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 import { notify } from "@/lib/toast";
 import { authApi } from "@/features/auth/lib/auth-api";
 import { OtpStep } from "./otp-step";
@@ -41,6 +38,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ plan, billing }: RegisterFormProps) {
+  const catalog = useCatalog();
   const router = useRouter();
   const [pendingEmail, setPendingEmail] = useState<string>();
   const [loading, setLoading] = useState(false);
@@ -101,7 +99,7 @@ export function RegisterForm({ plan, billing }: RegisterFormProps) {
           สมัครสมาชิก
         </h1>
         <p className="text-muted-foreground text-sm">
-          ทดลองใช้ฟรี {TRIAL_DAYS} วัน ไม่ต้องใช้บัตรเครดิต
+          ทดลองใช้ฟรี {catalog?.trialDays ?? "..."} วัน ไม่ต้องใช้บัตรเครดิต
         </p>
       </div>
 

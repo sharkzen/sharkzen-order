@@ -10,6 +10,8 @@ interface ReceiptSheetProps {
   bill: TableBill;
   payment: Payment;
   config: CheckoutConfig;
+  /** พิมพ์ซ้ำจากประวัติ: ใบเสร็จจะระบุว่าเป็นสำเนา */
+  copy?: boolean;
   /** เรียกเมื่อหน้าต่างพิมพ์ปิดแล้ว (พิมพ์หรือยกเลิกก็ตาม) */
   onDone: () => void;
 }
@@ -24,6 +26,7 @@ export function ReceiptSheet({
   bill,
   payment,
   config,
+  copy = false,
   onDone,
 }: ReceiptSheetProps) {
   useEffect(() => {
@@ -56,8 +59,15 @@ export function ReceiptSheet({
         </div>
 
         <Divider />
+        {copy && <p style={{ textAlign: "center", fontWeight: 700 }}>*** สำเนาใบเสร็จ ***</p>}
         <Pair label="โต๊ะ" value={bill.tableName} />
         <Pair label="วันที่" value={`${payment.paidDate ?? ""} ${payment.paidAt} น.`.trim()} />
+        <p>หมายเลขออเดอร์</p>
+        {bill.rounds.map((round) => (
+          <p key={round.orderId} style={{ fontWeight: 700, letterSpacing: "0.02em" }}>
+            {round.code}
+          </p>
+        ))}
         <Divider />
 
         {lines.map((line) => (
@@ -93,8 +103,9 @@ export function ReceiptSheet({
           <span>{formatNumber(payment.total)} บาท</span>
         </div>
         <p style={{ textAlign: "right", fontSize: "10px" }}>
-          รวมภาษีมูลค่าเพิ่ม 7% (
-          {formatNumber(Math.round((payment.total * 7) / 107))} บาท)
+          {config.vatIncluded
+            ? "รวมภาษีมูลค่าเพิ่มแล้ว"
+            : "ราคานี้ยังไม่รวมภาษีมูลค่าเพิ่ม"}
         </p>
 
         <Divider />

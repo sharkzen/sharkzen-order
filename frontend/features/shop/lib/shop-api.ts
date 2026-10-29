@@ -57,7 +57,29 @@ export const uploadCoverImage = (image: Blob) => {
     .then((res) => res.data.url);
 };
 
+/** สาขาของบัญชี (ตรงกับ GET /shop/branches) */
+export interface Branch {
+  id: string;
+  name: string;
+  /** ชื่อสาขา ว่าง = ยังไม่ได้ตั้งชื่อ */
+  branch: string;
+  isOpen: boolean;
+  /** สาขาที่กำลังจัดการอยู่ */
+  active: boolean;
+}
+
+/** สาขาทั้งหมดพร้อมเพดานตามแพ็กเกจที่ใช้อยู่ */
+export interface BranchList {
+  items: Branch[];
+  /** จำนวนสาขาสูงสุดของแพ็กเกจ */
+  limit: number;
+  planName: string;
+}
+
 export const shopApi = {
+  branches: () => clientHttp.get<BranchList>("/shop/branches"),
+  createBranch: (branch: string) => clientHttp.post<BranchList>("/shop/branches", { branch }),
+  switchBranch: (shopId: string) => clientHttp.put<BranchList>("/shop/branches/active", { shopId }),
   get: () => clientHttp.get<Shop>("/shop"),
   update: (body: ShopSettingsBody) => clientHttp.put<Shop>("/shop", body),
   setOpen: (isOpen: boolean) => clientHttp.patch<Shop>("/shop/open", { isOpen }),

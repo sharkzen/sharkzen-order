@@ -22,10 +22,10 @@ export interface OverviewResponse {
   tables: { occupied: number; total: number };
   series: { key: string; amount: number }[];
   statuses: { status: ApiOrderStatus; count: number }[];
-  popular: { name: string; quantity: number; revenue: number }[];
+  popular: { name: string; quantity: number; revenue: number; image: string }[];
   recent: {
     id: string;
-    number: number;
+    code: string;
     createdAt: string;
     table: string;
     total: number;

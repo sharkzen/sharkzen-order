@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Kanit, Noto_Sans_Thai } from "next/font/google";
 import { MotionProvider } from "@/components/motion/motion-provider";
+import { BlockedModal } from "@/features/access/components/blocked-modal";
 import { ToastProvider } from "@/components/providers/toast-provider";
 import { env } from "@/config/env";
 import { siteConfig } from "@/config/site";
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="flex min-h-full flex-col">
         <ToastProvider />
+        <BlockedModal />
         <MotionProvider>{children}</MotionProvider>
       </body>
     </html>

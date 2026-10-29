@@ -7,6 +7,7 @@ export class ApiError extends Error {
     public readonly status?: number,
     public readonly fieldErrors?: Record<string, string[]>,
     public readonly code?: string,
+    public readonly reason?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -29,6 +30,7 @@ export function toApiError(error: unknown): ApiError {
       status,
       data?.errors,
       data?.code,
+      data?.reason,
     );
   }
 

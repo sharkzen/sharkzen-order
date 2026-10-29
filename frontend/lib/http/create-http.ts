@@ -1,6 +1,7 @@
 import axios, { type AxiosInstance, type CreateAxiosDefaults } from "axios";
 import { env } from "@/config/env";
 import { toApiError } from "./api-error";
+import { announceBlocked } from "./blocked";
 
 /**
  * สร้าง axios instance พร้อม interceptor มาตรฐาน
@@ -16,7 +17,11 @@ export function createHttp(config: CreateAxiosDefaults = {}): AxiosInstance {
 
   instance.interceptors.response.use(
     (response) => response,
-    (error: unknown) => Promise.reject(toApiError(error)),
+    (error: unknown) => {
+      const apiError = toApiError(error);
+      announceBlocked(apiError);
+      return Promise.reject(apiError);
+    },
   );
 
   return instance;

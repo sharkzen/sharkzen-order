@@ -4,12 +4,14 @@ import { useMemo } from "react";
 import { Button, Card, Skeleton } from "@/components/ui";
 import { useShop } from "@/features/shop/components/shop-provider";
 import { tablesApi } from "@/features/table-management/lib/tables-api";
+import { menuApi } from "@/features/menu-management/lib/menu-api";
 import { cashierApi, type CashierData } from "@/features/cashier/lib/cashier-api";
 import type { CheckoutConfig, TableBill } from "@/features/cashier/types";
 import { useResource } from "@/hooks/use-resource";
 import { SocketEvent } from "@/lib/socket";
 import { notify } from "@/lib/toast";
 import { CashierView, type CashierActions } from "./cashier-workspace";
+import type { PickableMenu } from "./order-editor";
 
 const PLACEHOLDER_CONFIG: CheckoutConfig = {
   serviceChargePercent: 0,
@@ -31,10 +33,11 @@ const PLACEHOLDER_BILLS: TableBill[] = Array.from({ length: 6 }, (_, index) => (
   rounds: [
     {
       orderId: `o${index}`,
-      number: index,
+      code: `SZ-000000-PLACEH${index}`,
       time: "00:00",
       served: true,
-      lines: [{ name: "รายการอาหารตัวอย่าง", quantity: 1, unitPrice: 100 }],
+      notes: [],
+      lines: [{ id: `l${index}`, name: "รายการอาหารตัวอย่าง", options: [], note: "", quantity: 1, unitPrice: 100 }],
     },
   ],
   payment: null,
@@ -43,6 +46,10 @@ const PLACEHOLDER_BILLS: TableBill[] = Array.from({ length: 6 }, (_, index) => (
 const NOOP_ACTIONS: CashierActions = {
   pay: async () => undefined,
   closeTable: async () => false,
+  addItem: async () => false,
+  setQuantity: async () => false,
+  removeItem: async () => false,
+  clearTable: async () => false,
 };
 
 const TIME_FORMAT: Intl.DateTimeFormatOptions = { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" };
@@ -53,6 +60,28 @@ export function CashierWorkspace() {
   const { data, setData, error, reload } = useResource(cashierApi.list, {
     refetchOn: [SocketEvent.OrderCreated, SocketEvent.OrderUpdated, SocketEvent.TablesChanged, SocketEvent.ShopUpdated],
   });
+
+  const { data: menuData } = useResource(menuApi.list);
+  const menu = useMemo<PickableMenu[]>(
+    () =>
+      (menuData?.items ?? [])
+        .filter((item) => item.available)
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          image: item.image,
+          featured: item.featured,
+          categoryId: item.categoryId,
+          needsOptions: item.optionGroups.some((group) => group.required),
+        })),
+    [menuData],
+  );
+
+  const categories = useMemo(
+    () => (menuData?.categories ?? []).filter((category) => category.visible).map(({ id, name }) => ({ id, name })),
+    [menuData],
+  );
 
   const config = useMemo<CheckoutConfig | undefined>(
     () =>
@@ -85,6 +114,55 @@ export function CashierWorkspace() {
           notify.error(e);
           reload();
           return undefined;
+        }
+      },
+
+      // แก้รายการแล้วโหลดบิลใหม่จาก server (ยอดคำนวณฝั่ง server เสมอ)
+      async addItem(tableId, menuItemId) {
+        try {
+          await cashierApi.addItem(tableId, menuItemId);
+          reload();
+          return true;
+        } catch (e) {
+          notify.error(e);
+          return false;
+        }
+      },
+
+      async setQuantity(orderId, itemId, quantity) {
+        try {
+          await cashierApi.setQuantity(orderId, itemId, quantity);
+          reload();
+          return true;
+        } catch (e) {
+          notify.error(e);
+          reload();
+          return false;
+        }
+      },
+
+      async removeItem(orderId, itemId, quantity) {
+        try {
+          await cashierApi.removeItem(orderId, itemId, quantity);
+          reload();
+          return true;
+        } catch (e) {
+          notify.error(e);
+          reload();
+          return false;
+        }
+      },
+
+      async clearTable(bill) {
+        try {
+          for (const round of bill.rounds)
+            for (const line of round.lines) await cashierApi.removeItem(round.orderId, line.id, line.quantity);
+          return true;
+        } catch (e) {
+          notify.error(e);
+          return false;
+        } finally {
+          reload();
         }
       },
 
@@ -121,6 +199,8 @@ export function CashierWorkspace() {
           updatedAt="00:00 น."
           actions={NOOP_ACTIONS}
           config={PLACEHOLDER_CONFIG}
+          menu={[]}
+          categories={[]}
         />
       </Skeleton>
     );
@@ -133,6 +213,8 @@ export function CashierWorkspace() {
       updatedAt={`${new Date().toLocaleTimeString("th-TH", TIME_FORMAT)} น.`}
       actions={actions}
       config={config}
+      menu={menu}
+      categories={categories}
     />
   );
 }

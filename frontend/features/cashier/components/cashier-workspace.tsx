@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ReceiptText } from "lucide-react";
-import { Button, Dialog } from "@/components/ui";
+import { Armchair, ReceiptText } from "lucide-react";
+import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import { useSocketConnected } from "@/lib/socket";
 import { notify } from "@/lib/toast";
@@ -19,6 +19,7 @@ import type {
 } from "@/features/cashier/types";
 import { BillPanel } from "./bill-panel";
 import { CashierStats } from "./cashier-stats";
+import { OrderEditor, type PickableCategory, type PickableMenu } from "./order-editor";
 import { CheckoutModal, type CheckoutState } from "./checkout-modal";
 import { ReceiptSheet } from "./receipt-sheet";
 import { TableList, type TableView } from "./table-list";
@@ -27,6 +28,11 @@ export interface CashierActions {
   /** บันทึกการชำระ คืนยอดที่ server บันทึกจริง หรือ undefined เมื่อไม่สำเร็จ (แจ้งสาเหตุให้แล้ว) */
   pay: (tableId: string, input: PayInput) => Promise<Payment | undefined>;
   closeTable: (bill: TableBill) => Promise<boolean>;
+  /** แก้รายการของโต๊ะ: คืน true เมื่อสำเร็จ (แจ้งสาเหตุให้แล้วเมื่อไม่สำเร็จ) */
+  addItem: (tableId: string, menuItemId: string) => Promise<boolean>;
+  setQuantity: (orderId: string, itemId: string, quantity: number) => Promise<boolean>;
+  removeItem: (orderId: string, itemId: string, quantity: number) => Promise<boolean>;
+  clearTable: (bill: TableBill) => Promise<boolean>;
 }
 
 interface CashierViewProps {
@@ -35,6 +41,9 @@ interface CashierViewProps {
   updatedAt: string;
   actions: CashierActions;
   config: CheckoutConfig;
+  /** เมนูที่เพิ่มให้โต๊ะได้ */
+  menu: PickableMenu[];
+  categories: PickableCategory[];
   /** ให้ส่วนลดได้ (สิทธิ์ cashier.discount ของผู้ใช้ปัจจุบัน) */
   canDiscount?: boolean;
 }
@@ -49,9 +58,9 @@ function byPriority(a: TableBill, b: TableBill) {
 }
 
 /**
- * จอคิดเงิน (ไม่ดึงข้อมูลเอง รับบิลและ actions จาก CashierWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้): ซ้ายเลือกโต๊ะ ขวาเป็นบิลที่พอดีหนึ่งหน้าจอ กด "เงินสด" หรือ "โอนเงิน" แล้วเปิดหน้าต่างรับเงิน
- * ชำระเสร็จ → พิมพ์ใบเสร็จ → ปิดโต๊ะ → บิลโต๊ะรอชำระถัดไปขึ้นเอง
- * จอเล็กจะเปิดบิลเป็นหน้าต่างเต็มจอแทน ยอดทุกบาทถูกคำนวณซ้ำและบันทึกที่ server ตอนรับชำระ
+ * จอคิดเงิน (ไม่ดึงข้อมูลเอง รับบิลและ actions จาก CashierWorkspace จึงใช้เรนเดอร์เป็น skeleton ได้)
+ * เลือกโต๊ะ → ซ้ายแก้รายการ (เพิ่มเมนู ปรับจำนวน ลบ) ขวาสรุปยอด กด "เงินสด" หรือ "โอนเงิน" แล้วเปิดหน้าต่างรับเงิน
+ * ชำระเสร็จ → พิมพ์ใบเสร็จ → ปิดโต๊ะ → บิลโต๊ะรอชำระถัดไปขึ้นเอง ยอดทุกบาทถูกคำนวณซ้ำและบันทึกที่ server ตอนรับชำระ
  */
 export function CashierView({
   bills,
@@ -59,6 +68,8 @@ export function CashierView({
   updatedAt,
   actions,
   config,
+  menu,
+  categories,
   canDiscount = true,
 }: CashierViewProps) {
   const desktop = useIsDesktop();
@@ -131,8 +142,8 @@ export function CashierView({
       .filter((item) => isDue(item) && item.tableId !== bill.tableId)
       .sort(byPriority)[0];
     if (!(await actions.closeTable(bill))) return;
-    // จอใหญ่: กระโดดไปโต๊ะรอชำระถัดไปทันที จอเล็ก: กลับไปรายการโต๊ะ
-    setSelectedId(desktop ? (next?.tableId ?? null) : null);
+    // กระโดดไปโต๊ะรอชำระถัดไปทันที ถ้าไม่มีแล้วกลับไปรายการโต๊ะ
+    setSelectedId(next?.tableId ?? null);
     notify.success(`ปิด${bill.tableName} แล้ว`, "โต๊ะพร้อมรับลูกค้ากลุ่มถัดไป");
   }
 
@@ -153,21 +164,18 @@ export function CashierView({
     setPrintJob(null);
   }
 
-  const panel = selected && (
-    <BillPanel
-      key={selected.tableId}
-      bill={selected}
-      config={config}
-      canDiscount={canDiscount}
-      onPay={startPay}
-      onFinish={finish}
-    />
-  );
-
   return (
-    <div className="pos-viewport flex w-full flex-col gap-4 overflow-hidden">
+    <div
+      className={cn(
+        "flex w-full flex-col gap-4",
+        desktop && "pos-viewport overflow-hidden",
+      )}
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex items-baseline gap-3">
+        <div className="flex items-center gap-3">
+          <span className="bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <ReceiptText className="size-5" aria-hidden />
+          </span>
           <h1 className="font-display text-foreground text-2xl leading-tight font-semibold">
             คิดเงิน
           </h1>
@@ -186,51 +194,83 @@ export function CashierView({
             <span className="text-muted-foreground hidden xl:inline">• {updatedAt}</span>
           </p>
         </div>
-        <CashierStats
-          dueTables={stats.dueCount}
-          dueAmount={stats.dueAmount}
-          collectedToday={stats.collected}
-        />
-      </div>
-
-      <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
-        <TableList
-          bills={visible}
-          config={config}
-          view={view}
-          query={query}
-          dueCount={stats.dueCount}
-          totalCount={bills.length}
-          selectedId={selectedId}
-          zones={zones}
-          zone={zone}
-          onZoneChange={setZone}
-          onViewChange={setView}
-          onQueryChange={setQuery}
-          onSelect={(bill) => setSelectedId(bill.tableId)}
-        />
-
-        {desktop && (
-          <aside aria-label="บิลของโต๊ะที่เลือก" className="min-h-0">
-            {panel ?? (
-              <EmptyPane
-                disabled={!firstDue}
-                onStart={() => firstDue && setSelectedId(firstDue.tableId)}
-              />
-            )}
-          </aside>
+        {!selected && (
+          <CashierStats
+            dueTables={stats.dueCount}
+            dueAmount={stats.dueAmount}
+            collectedToday={stats.collected}
+          />
         )}
       </div>
 
-      {!desktop && (
-        <Dialog
-          open={selected !== null}
-          title={selected ? `คิดเงิน ${selected.tableName}` : "คิดเงิน"}
-          onClose={() => setSelectedId(null)}
-          className="bg-background w-[min(100vw,480px)] sm:w-[min(96vw,480px)]"
-        >
-          <div className="h-[min(88dvh,780px)] p-3 pt-14">{panel}</div>
-        </Dialog>
+      {selected ? (
+        <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[minmax(0,1fr)_400px] xl:grid-cols-[minmax(0,1fr)_440px]">
+          <div className="flex min-h-0 min-w-0 flex-col gap-3">
+            <div className="border-border bg-surface flex items-center gap-3 rounded-xl border px-4 py-3">
+              <span className="bg-primary-soft text-primary-strong flex size-11 shrink-0 items-center justify-center rounded-xl">
+                <Armchair className="size-5" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-display text-foreground truncate text-lg leading-tight font-semibold">
+                  {selected.tableName}
+                </p>
+                <p className="text-muted-foreground truncate text-xs">
+                  {selected.zone} • เข้าใช้เมื่อ {selected.openedAt} น.
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" onClick={() => setSelectedId(null)}>
+                เปลี่ยนโต๊ะ
+              </Button>
+            </div>
+            <OrderEditor
+              key={selected.tableId}
+              bill={selected}
+              menu={menu}
+              categories={categories}
+              actions={actions}
+              locked={selected.payment !== null}
+            />
+          </div>
+          <aside aria-label="สรุปรายการและยอดชำระ" className="min-h-0">
+            <BillPanel
+              key={selected.tableId}
+              bill={selected}
+              config={config}
+              canDiscount={canDiscount}
+              onPay={startPay}
+              onFinish={finish}
+            />
+          </aside>
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-muted-foreground text-sm">เลือกโต๊ะที่ต้องการคิดเงิน</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!firstDue}
+              onClick={() => firstDue && setSelectedId(firstDue.tableId)}
+            >
+              เริ่มจากโต๊ะที่รอนานที่สุด
+            </Button>
+          </div>
+          <TableList
+            bills={visible}
+            config={config}
+            view={view}
+            query={query}
+            dueCount={stats.dueCount}
+            totalCount={bills.length}
+            selectedId={selectedId}
+            zones={zones}
+            zone={zone}
+            onZoneChange={setZone}
+            onViewChange={setView}
+            onQueryChange={setQuery}
+            onSelect={(bill) => setSelectedId(bill.tableId)}
+          />
+        </div>
       )}
 
       <CheckoutModal
@@ -253,33 +293,6 @@ export function CashierView({
           onDone={printDone}
         />
       )}
-    </div>
-  );
-}
-
-function EmptyPane({
-  disabled,
-  onStart,
-}: {
-  disabled: boolean;
-  onStart: () => void;
-}) {
-  return (
-    <div className="border-border flex h-full flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-8 py-12 text-center">
-      <span className="bg-primary-soft text-primary-strong flex size-14 items-center justify-center rounded-full">
-        <ReceiptText className="size-7" aria-hidden />
-      </span>
-      <div className="flex flex-col gap-1">
-        <p className="text-foreground text-[15px] font-semibold">
-          เลือกโต๊ะเพื่อเริ่มคิดเงิน
-        </p>
-        <p className="text-muted-foreground text-[13px]">
-          กดที่โต๊ะทางซ้าย บิลและปุ่มรับเงินจะขึ้นที่นี่
-        </p>
-      </div>
-      <Button variant="secondary" disabled={disabled} onClick={onStart}>
-        เริ่มจากโต๊ะที่รอนานที่สุด
-      </Button>
     </div>
   );
 }

@@ -29,9 +29,14 @@ export function PopularMenuCard({
               </span>
               <span
                 aria-hidden
-                className="bg-primary-muted text-primary-strong flex size-12 shrink-0 items-center justify-center rounded-lg text-base font-semibold"
+                className="bg-primary-muted text-primary-strong flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg text-base font-semibold"
               >
-                {menu.name.charAt(0)}
+                {menu.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={menu.image} alt="" loading="lazy" className="size-full object-cover" />
+                ) : (
+                  menu.name.charAt(0)
+                )}
               </span>
               <div className="flex min-w-0 flex-1 flex-col">
                 <p className="text-foreground truncate text-[13px] font-medium">

@@ -35,7 +35,7 @@ function ago(iso: string, now: number) {
   return new Date(iso).toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
-/** กระดิ่งแจ้งเตือนของร้าน: ออเดอร์ใหม่ การชำระเงิน การยกเลิก อัปเดตสดผ่าน Socket.IO */
+/** กระดิ่งแจ้งเตือนของร้าน: เฉพาะเรื่องสำคัญ เช่น ลูกค้าเรียกพนักงาน การชำระเงิน การยกเลิก อัปเดตสดผ่าน Socket.IO */
 export function NotificationMenu() {
   const router = useRouter();
   const {
@@ -109,7 +109,7 @@ export function NotificationMenu() {
           {notifications.length === 0 ? (
             <div className="text-muted-foreground flex flex-col items-center gap-2 px-6 py-10 text-center text-[13px]">
               <BellOff className="size-6" aria-hidden />
-              ยังไม่มีการแจ้งเตือน ออเดอร์ใหม่และการชำระเงินจะแสดงที่นี่
+              ยังไม่มีการแจ้งเตือน ลูกค้าเรียกพนักงานและเรื่องสำคัญจะแสดงที่นี่
             </div>
           ) : (
             <ul className="scroll-thin divide-border divide-y overflow-y-auto">

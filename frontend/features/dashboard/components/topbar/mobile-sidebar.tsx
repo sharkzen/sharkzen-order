@@ -5,7 +5,13 @@ import { AnimatePresence, m } from "framer-motion";
 import { Menu, X } from "lucide-react";
 
 /** ปุ่มเมนู + drawer แถบนำทางสำหรับจอเล็ก (เนื้อหาแถบส่งมาจาก Server Component ผ่าน children) */
-export function MobileSidebar({ children }: { children: ReactNode }) {
+export function MobileSidebar({
+  children,
+  label = "เมนูจัดการร้าน",
+}: {
+  children: ReactNode;
+  label?: string;
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -40,7 +46,7 @@ export function MobileSidebar({ children }: { children: ReactNode }) {
             <m.aside
               role="dialog"
               aria-modal="true"
-              aria-label="เมนูจัดการร้าน"
+              aria-label={label}
               className="bg-surface shadow-float scroll-thin absolute inset-y-0 left-0 w-[272px] max-w-[85vw] overflow-y-auto"
               initial={{ x: "-100%" }}
               animate={{ x: 0 }}

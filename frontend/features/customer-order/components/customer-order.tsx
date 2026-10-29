@@ -36,11 +36,26 @@ import { ClosedDialog } from "./closed-dialog";
 import { MenuCard } from "./menu-card";
 import { CallStaffDialog } from "./call-staff-dialog";
 import { CustomerNav } from "./customer-nav";
+import { useTableLive } from "@/features/customer-order/lib/use-table-live";
 
-const POLL_MS = 10_000;
 const DEFAULT_COVER = "/images/customer/hero.png";
 
-type LoadError = "invalid" | "failed";
+type LoadError = "invalid" | "failed" | "unavailable";
+
+/** เก็บตั๋วรอบไว้ข้างตะกร้า เพื่อรู้ว่าตะกร้าที่ค้างอยู่เป็นของรอบไหน (รีเฟรชหน้าแล้วยังเทียบได้) */
+function readSavedSession(cartKey: string) {
+  try {
+    return sessionStorage.getItem(`${cartKey}:session`);
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(cartKey: string, session: string) {
+  try {
+    sessionStorage.setItem(`${cartKey}:session`, session);
+  } catch {}
+}
 
 /** หน้าสั่งอาหารของลูกค้า: เปิดจาก QR ที่โต๊ะ ร้านและโต๊ะมาจาก token ใน URL */
 export function CustomerOrder({ token }: { token: string }) {
@@ -62,6 +77,10 @@ export function CustomerOrder({ token }: { token: string }) {
   const [category, setCategory] = useState("");
   const [chipsAtEnd, setChipsAtEnd] = useState(false);
   const wasOrderable = useRef<boolean | null>(null);
+  /** การกดสั่งครั้งล่าสุดที่ยังไม่สำเร็จ (ตะกร้าเดิม = กุญแจเดิม) */
+  const attempt = useRef<{ signature: string; key: string } | null>(null);
+  /** ตั๋วของรอบการนั่งล่าสุดที่หน้านี้รู้ */
+  const session = useRef<string | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
   /** ตำแหน่งและความกว้างของเส้นใต้แท็บหมวดที่เลือก (วัดจากปุ่มจริง) */
   const [indicator, setIndicator] = useState<{ x: number; width: number } | null>(null);
@@ -81,10 +100,22 @@ export function CustomerOrder({ token }: { token: string }) {
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [nextMenu, nextOrders] = await Promise.all([
-          customerApi.menu(token, signal),
-          customerApi.orders(token, signal),
-        ]);
+        const nextMenu = await customerApi.menu(token, signal);
+        const nextOrders = nextMenu.session
+          ? await customerApi.orders(token, nextMenu.session, signal)
+          : [];
+        // พนักงานเปิดโต๊ะรอบใหม่: ตะกร้าของรอบก่อนใช้ต่อไม่ได้ ล้างทิ้งแล้วแจ้งให้รู้
+        if (nextMenu.session) {
+          const known = session.current ?? readSavedSession(cartKey);
+          if (known && known !== nextMenu.session) {
+            setCart([]);
+            setNote("");
+            setCartOpen(false);
+            notify.info("เริ่มรอบการนั่งใหม่", "ตะกร้าของรอบก่อนถูกล้างแล้ว");
+          }
+          session.current = nextMenu.session;
+          saveSession(cartKey, nextMenu.session);
+        }
         // ถ้าสั่งได้อยู่แล้วกลายเป็นสั่งไม่ได้ (พนักงานปิดโต๊ะ/ร้านปิดรับ) แจ้งทันที
         if (wasOrderable.current !== false && !nextMenu.canOrder)
           setClosedOpen(true);
@@ -94,26 +125,25 @@ export function CustomerOrder({ token }: { token: string }) {
         setError(null);
       } catch (e) {
         if (signal?.aborted) return;
+        const failure = toApiError(e);
         setError((current) =>
-          toApiError(e).status === 404 ? "invalid" : (current ?? "failed"),
+          failure.code === "SHOP_UNAVAILABLE"
+            ? "unavailable"
+            : failure.status === 404
+              ? "invalid"
+              : (current ?? "failed"),
         );
       }
     },
-    [token],
+    [token, cartKey],
   );
 
   useEffect(() => {
     const controller = new AbortController();
     void refresh(controller.signal);
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible")
-        void refresh(controller.signal);
-    }, POLL_MS);
-    return () => {
-      controller.abort();
-      clearInterval(timer);
-    };
+    return () => controller.abort();
   }, [refresh]);
+  useTableLive(token, () => void refresh());
 
   // ตะกร้าไม่หายเมื่อรีเฟรชหน้า (เก็บแยกตามโต๊ะ)
   useEffect(() => {
@@ -191,7 +221,7 @@ export function CustomerOrder({ token }: { token: string }) {
   async function callStaff() {
     setCalling(true);
     try {
-      await customerApi.callStaff(token);
+      await customerApi.callStaff(token, session.current ?? "");
       setCallOpen(false);
       notify.success("เรียกพนักงานแล้ว", "พนักงานจะมาที่โต๊ะของคุณเร็วๆ นี้");
     } catch (e) {
@@ -205,7 +235,7 @@ export function CustomerOrder({ token }: { token: string }) {
     if (!lines.length || submitting) return;
     setSubmitting(true);
     try {
-      const placed = await customerApi.placeOrder(token, {
+      const body = {
         items: lines.map(({ item, optionIds, quantity, note: lineNote }) => ({
           menuItemId: item.id,
           quantity,
@@ -213,15 +243,27 @@ export function CustomerOrder({ token }: { token: string }) {
           note: lineNote.trim(),
         })),
         notes: note.trim() ? [note.trim()] : [],
-      });
+      };
+      // กุญแจกันสั่งซ้ำ: ตะกร้าเดิมที่ส่งซ้ำ (เน็ตหลุด/กดรัว) ใช้กุญแจเดิม server จึงไม่สร้างออเดอร์ที่สอง
+      const signature = JSON.stringify(body);
+      if (attempt.current?.signature !== signature) {
+        attempt.current = { signature, key: crypto.randomUUID() };
+      }
+      const placed = await customerApi.placeOrder(token, session.current ?? "", body, attempt.current.key);
+      attempt.current = null;
       setCart([]);
       setNote("");
       setCartOpen(false);
-      notify.success(`ส่งออเดอร์ #${placed.number} เข้าครัวแล้ว`);
+      notify.success(`ส่งออเดอร์ ${placed.code} เข้าครัวแล้ว`);
       router.push(`/t/${token}/orders`);
     } catch (e) {
       const { code } = toApiError(e);
-      if (code === "SHOP_CLOSED" || code === "TABLE_CLOSED") {
+      if (code === "SESSION_ENDED") {
+        // รอบเดิมจบแล้ว: โหลดรอบใหม่ (ล้างตะกร้าให้ตอนเจอตั๋วใหม่)
+        setCartOpen(false);
+        await refresh();
+        notify.error(e);
+      } else if (code === "SHOP_CLOSED" || code === "TABLE_CLOSED") {
         setCartOpen(false);
         setClosedOpen(true);
         await refresh();
@@ -246,9 +288,17 @@ export function CustomerOrder({ token }: { token: string }) {
             <PiWarningFill className="size-7" />
           )
         }
-        title={error === "invalid" ? "QR นี้ใช้ไม่ได้" : "เปิดเมนูไม่สำเร็จ"}
+        title={
+          error === "unavailable"
+            ? "ร้านปิดให้บริการชั่วคราว"
+            : error === "invalid"
+              ? "QR นี้ใช้ไม่ได้"
+              : "เปิดเมนูไม่สำเร็จ"
+        }
         body={
-          error === "invalid"
+          error === "unavailable"
+            ? "ขออภัย ร้านนี้ยังไม่พร้อมรับออเดอร์ในตอนนี้ กรุณาแจ้งพนักงานในร้าน"
+            : error === "invalid"
             ? "ไม่พบโต๊ะจากลิงก์นี้ ลองสแกน QR ที่โต๊ะใหม่อีกครั้ง หรือเรียกพนักงาน"
             : "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่"
         }

@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // image แบบ standalone สำหรับ Docker (frontend/Dockerfile)
+  output: "standalone",
   /* config options here */
   experimental: {
     agentFeedback: true,

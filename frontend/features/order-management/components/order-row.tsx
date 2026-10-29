@@ -6,7 +6,7 @@ import { FoodStatusBadge, PaymentBadge } from "./order-badges";
 
 /** ความกว้างคอลัมน์ของตาราง ใช้ร่วมกับหัวตาราง (ตั้งแต่ xl ขึ้นไป) */
 export const ORDER_GRID =
-  "xl:grid xl:grid-cols-[96px_64px_52px_minmax(0,1fr)_88px_140px_128px_104px] xl:gap-x-3 xl:items-center";
+  "xl:grid xl:grid-cols-[148px_72px_52px_minmax(0,1fr)_88px_140px_128px_104px] xl:gap-x-3 xl:items-center";
 
 /**
  * แถวคำสั่งซื้อหนึ่งรายการ
@@ -18,10 +18,13 @@ export function OrderRow({ order, onView }: { order: ManagedOrder; onView: (orde
       className={`border-border flex flex-col gap-3 border-b px-4 py-4 sm:px-5 xl:min-h-[90px] xl:gap-0 xl:py-3.5 ${ORDER_GRID}`}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 xl:contents">
-        <span className="text-primary-strong text-[13px] font-semibold">
+        <span className="text-primary-strong text-[13px] font-semibold whitespace-nowrap">
           {order.code}
         </span>
-        <span className="text-foreground text-xs">{order.time} น.</span>
+        <span className="text-foreground flex flex-col text-xs">
+          {order.time} น.
+          {order.date && <span className="text-muted-foreground text-[11px]">{order.date}</span>}
+        </span>
         <span className="text-foreground text-sm font-medium">
           {order.table}
         </span>
@@ -43,6 +46,7 @@ export function OrderRow({ order, onView }: { order: ManagedOrder; onView: (orde
         <PaymentBadge
           status={order.paymentStatus}
           method={order.paymentMethod}
+          cancelled={order.status === "cancelled"}
         />
         {/* เว้นท้ายเท่าความสูงข้อความช่องทางชำระเงิน เพื่อให้ป้ายสถานะอาหารอยู่ระดับเดียวกับป้ายการชำระเงิน */}
         <div className="xl:pb-5">

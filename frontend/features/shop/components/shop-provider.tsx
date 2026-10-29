@@ -81,7 +81,13 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     const goLogin = (e: unknown) => {
       if (e instanceof ApiError && e.status === 401) router.replace(ROUTES.login);
     };
-    authApi.me().then(({ data }) => setUser(data.user), goLogin);
+    authApi.me().then(({ data }) => {
+      setUser(data.user);
+      // ผู้ดูแลระบบไม่มีร้านของตัวเอง พาไปพื้นที่ผู้ดูแลระบบ
+      if (data.user.role === "ADMIN") router.replace(ROUTES.admin);
+      // พนักงานที่ยังใช้รหัสผ่านตั้งต้นต้องเปลี่ยนก่อน
+      if (data.user.role === "STAFF" && data.user.mustChangePassword) router.replace(ROUTES.staffPassword);
+    }, goLogin);
     shopApi.get().then(({ data }) => setShop(data), goLogin);
     billingApi.overview().then(({ subscription: sub }) => setSubscription(sub), () => undefined);
     shopApi.notifications().then(({ data }) => {
@@ -93,11 +99,19 @@ export function ShopProvider({ children }: { children: ReactNode }) {
 
   useSocketEvent<Shop>(SocketEvent.ShopUpdated, setShop);
 
+  // ผู้ดูแลระบบแบนบัญชี/ระงับร้านขณะใช้งานอยู่: ลองเรียกอีกครั้ง ถ้าถูกบล็อกจะขึ้นหน้าต่างให้ติดต่อผู้ดูแลระบบเอง
+  useSocketEvent(SocketEvent.AccessChanged, () => {
+    void Promise.allSettled([authApi.me(), shopApi.get()]);
+  });
+
   useSocketEvent<AppNotification>(SocketEvent.NotificationCreated, (item) => {
-    setNotifications((prev) =>
-      prev.some((n) => n.id === item.id) ? prev : [item, ...prev],
-    );
-    setUnread((count) => count + 1);
+    // ออเดอร์ใหม่ไม่เข้ากระดิ่ง (ดูที่หน้าคำสั่งซื้อ/ครัว) แต่ยังแจ้งเด้ง/เสียงตามการตั้งค่า
+    if (item.type !== "ORDER_NEW") {
+      setNotifications((prev) =>
+        prev.some((n) => n.id === item.id) ? prev : [item, ...prev],
+      );
+      setUnread((count) => count + 1);
+    }
     if (item.type === "ORDER_NEW" && shop?.newOrderPopup) {
       notify.info(item.title, item.body);
     }

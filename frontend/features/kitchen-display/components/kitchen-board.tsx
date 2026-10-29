@@ -67,14 +67,15 @@ export function KitchenBoard({ orders, shopName, branch, actions }: KitchenBoard
 
   // ออเดอร์ใหม่จากลูกค้า
   useSocketEvent<SocketOrder>(SocketEvent.OrderCreated, (order) => {
-    notify.info(`ออเดอร์ใหม่ ${order.table}`, `#${order.number}`);
+    if (order.status !== "NEW") return;
+    notify.info(`ออเดอร์ใหม่ ${order.table}`, order.code);
     if (settings.enabled) playAlert(settings.tone, settings.volume);
   });
 
   // หน้าร้านยกเลิกออเดอร์ (ครัวยังไม่ได้รับทราบ): การ์ดจะเป็นสีแดงให้ครัวหยุดทำและกดรับทราบ
   useSocketEvent<SocketOrder>(SocketEvent.OrderUpdated, (order) => {
     if (order.status !== "CANCELLED" || order.kitchenAck) return;
-    notify.warning(`หน้าร้านยกเลิก ${order.table}`, `#${order.number} • หยุดทำและกดรับทราบ`);
+    notify.warning(`หน้าร้านยกเลิก ${order.table}`, `${order.code} • หยุดทำและกดรับทราบ`);
     if (settings.enabled && settings.cancelEnabled) playAlert(settings.cancelTone, settings.volume);
   });
 

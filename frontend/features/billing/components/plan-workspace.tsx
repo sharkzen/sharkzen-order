@@ -22,8 +22,8 @@ const PLACEHOLDER: BillingOverview = {
     method: null,
     autoRenew: false,
   },
-  usage: { tables: 0, staff: 0 },
-  limits: { tables: null, staff: 10 },
+  usage: { tables: 0, staff: 0, branches: 1 },
+  limits: { tables: null, staff: 10, branches: 1 },
 };
 
 const PLACEHOLDER_INVOICES: Invoice[] = Array.from({ length: 3 }, (_, index) => ({

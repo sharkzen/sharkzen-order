@@ -6,7 +6,7 @@ type ApiStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 /** ออเดอร์จาก backend (ตรงกับ orderDto) เฉพาะฟิลด์ที่ครัวใช้ */
 export interface ApiKitchenOrder {
   id: string;
-  number: number;
+  code: string;
   createdAt: string;
   table: string;
   status: ApiStatus;
@@ -54,7 +54,7 @@ export function toKitchenOrder(order: ApiKitchenOrder): KitchenOrder | null {
 
   return {
     id: order.id,
-    code: `#${order.number}`,
+    code: order.code,
     table: tableLabel(order.table),
     orderedAt: new Date(order.createdAt).toLocaleTimeString("th-TH", CLOCK),
     items: order.items.map((item) => ({

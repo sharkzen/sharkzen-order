@@ -4,13 +4,12 @@ import { PAYMENT_METHOD_LABEL } from "@/features/order-management/lib/labels";
 import type { PaymentMethod } from "@/features/order-management/types";
 
 /** สีช่องทางชำระเงิน ผ่านการตรวจความต่างสี (รวมกรณีตาบอดสี) และมีป้ายชื่อ+ตัวเลขกำกับทุกช่องทาง */
-const METHOD_COLOR: Record<PaymentMethod, string> = {
+const METHOD_COLOR: Partial<Record<PaymentMethod, string>> = {
   transfer: "#2563eb",
   cash: "#0d9488",
-  counter: "#d97706",
 };
 
-const METHOD_ORDER: PaymentMethod[] = ["transfer", "cash", "counter"];
+const METHOD_ORDER: PaymentMethod[] = ["transfer", "cash"];
 
 /** สัดส่วนยอดขายตามช่องทางชำระเงิน ช่วยดูว่าต้องเตรียมเงินทอนหรือไม่ */
 export function PaymentMixCard({

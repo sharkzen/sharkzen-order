@@ -16,6 +16,8 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   /** บัญชีที่ยังไม่ยืนยันอีเมล: backend ส่ง OTP ให้แล้ว พาไปกรอกรหัสต่อ */
   const [unverifiedEmail, setUnverifiedEmail] = useState<string>();
+  /** ผู้ดูแลระบบที่เปิด 2FA: หลังรหัสผ่านถูก ต้องกรอกรหัส 6 หลักจากแอป Authenticator */
+  const [needCode, setNeedCode] = useState(false);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -23,16 +25,20 @@ export function LoginForm() {
     setLoading(true);
     try {
       const email = String(form.get("email") ?? "").trim();
-      await authApi.login(
+      const { data } = await authApi.login(
         email,
         String(form.get("password") ?? ""),
         form.get("remember") === "on",
+        needCode ? String(form.get("code") ?? "").trim() : undefined,
       );
       notify.success("เข้าสู่ระบบสำเร็จ");
-      router.push(ROUTES.dashboard);
+      router.push(data.user.role === "ADMIN" ? ROUTES.admin : ROUTES.dashboard);
     } catch (error) {
-      if (toApiError(error).code === "EMAIL_NOT_VERIFIED") {
+      const code = toApiError(error).code;
+      if (code === "EMAIL_NOT_VERIFIED") {
         setUnverifiedEmail(String(form.get("email") ?? "").trim());
+      } else if (code === "TOTP_REQUIRED") {
+        setNeedCode(true);
       } else {
         notify.error(error);
       }
@@ -101,10 +107,32 @@ export function LoginForm() {
             ลืมรหัสผ่าน?
           </Link>
         </div>
+        {needCode && (
+          <FormField label="รหัส 2FA 6 หลัก" htmlFor="code" hint="เปิดแอป Authenticator แล้วกรอกรหัสปัจจุบันของ SHARKZEN ORDER">
+            <Input
+              id="code"
+              name="code"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\d{6}"
+              maxLength={6}
+              placeholder="000000"
+              className="h-12 text-center text-lg tracking-[0.4em]"
+              autoFocus
+              required
+            />
+          </FormField>
+        )}
         <Button type="submit" size="lg" loading={loading} className="h-[52px]">
-          เข้าสู่ระบบ
+          {needCode ? "ยืนยันและเข้าสู่ระบบ" : "เข้าสู่ระบบ"}
         </Button>
       </form>
+      <p className="text-muted-foreground text-center text-sm">
+        เป็นพนักงานของร้าน?{" "}
+        <Link href={ROUTES.staffLogin} className="text-primary-strong font-semibold underline-offset-2 hover:underline">
+          เข้าสู่ระบบพนักงาน
+        </Link>
+      </p>
     </div>
   );
 }

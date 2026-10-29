@@ -57,7 +57,7 @@ export function UserMenu() {
         </span>
         <span className="hidden flex-col leading-[1.6] md:flex">
           <span className="text-foreground text-[13px] font-semibold">{name || " "}</span>
-          <span className="text-muted-foreground text-[11px]">เจ้าของร้าน</span>
+          <span className="text-muted-foreground text-[11px]">{user?.role === "STAFF" ? "พนักงาน" : "เจ้าของร้าน"}</span>
         </span>
         <ChevronDown className="text-muted-foreground hidden size-3.5 md:block" aria-hidden />
         <span className="sr-only">เมนูบัญชี {name}</span>

@@ -1,12 +1,30 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SearchX } from "lucide-react";
-import { Button, Card, EmptyState, Pagination, Skeleton } from "@/components/ui";
+import {
+  Button,
+  Card,
+  EmptyState,
+  Pagination,
+  Skeleton,
+} from "@/components/ui";
 import { formatRange, todayBangkok } from "@/features/dashboard/lib/date-range";
+import { ReceiptSheet } from "@/features/cashier/components/receipt-sheet";
+import { cashierApi } from "@/features/cashier/lib/cashier-api";
+import type {
+  CheckoutConfig,
+  Payment,
+  TableBill,
+} from "@/features/cashier/types";
+import { useShop } from "@/features/shop/components/shop-provider";
 import { exportOrdersCsv } from "@/features/order-management/lib/export-csv";
 import { ordersApi } from "@/features/order-management/lib/orders-api";
-import { PAGE_SIZE, countByStatus, filterOrders } from "@/features/order-management/lib/order-utils";
+import {
+  PAGE_SIZE,
+  countByStatus,
+  filterOrders,
+} from "@/features/order-management/lib/order-utils";
 import type {
   FoodStatus,
   ManagedOrder,
@@ -25,10 +43,16 @@ import { StatusTabs } from "./status-tabs";
 
 interface OrdersViewProps {
   orders: ManagedOrder[];
+  /** คำค้นที่ส่งไปค้นข้ามวันที่ server (ว่าง = ดูตามวันที่เลือก) */
+  query: string;
+  onQueryChange: (query: string) => void;
   date: string;
   onDateChange: (date: string) => void;
   updatedAt: string;
-  onAdvance: (order: ManagedOrder, to: Exclude<FoodStatus, "cancelled">) => Promise<void>;
+  onAdvance: (
+    order: ManagedOrder,
+    to: Exclude<FoodStatus, "cancelled">,
+  ) => Promise<void>;
   onCancel: (order: ManagedOrder, reason: string) => Promise<void>;
 }
 
@@ -37,9 +61,18 @@ const PLACEHOLDER: ManagedOrder[] = Array.from({ length: 6 }, (_, index) => ({
   code: "#0000",
   time: "00:00",
   table: "โต๊ะ 0",
-  items: [{ id: "i", name: "รายการอาหารตัวอย่าง", price: 100, quantity: 1, options: [],
+  items: [
+    {
+      id: "i",
+      name: "รายการอาหารตัวอย่าง",
+      price: 100,
+      quantity: 1,
+      options: [],
       note: "",
-      cancelledQty: 0, cancelReason: null }],
+      cancelledQty: 0,
+      cancelReason: null,
+    },
+  ],
   total: 100,
   notes: [],
   cancelReason: null,
@@ -52,12 +85,51 @@ const PLACEHOLDER: ManagedOrder[] = Array.from({ length: 6 }, (_, index) => ({
  * หน้าจัดการคำสั่งซื้อของวันที่เลือก (ค่าเริ่มต้น = วันนี้)
  * ตัวกรองสถานะใช้ state เดียวกันทั้งแท็บและช่องเลือก เปลี่ยนตัวกรองแล้วกลับไปหน้า 1 เสมอ
  */
-function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel }: OrdersViewProps) {
-  const [query, setQuery] = useState("");
+function OrdersView({
+  orders,
+  query,
+  onQueryChange,
+  date,
+  onDateChange,
+  updatedAt,
+  onAdvance,
+  onCancel,
+}: OrdersViewProps) {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [payment, setPayment] = useState<PaymentFilter>("all");
   const [page, setPage] = useState(1);
   const [viewingId, setViewingId] = useState<string | null>(null);
+  const { shop } = useShop();
+  const [receipt, setReceipt] = useState<{
+    bill: TableBill;
+    payment: Payment;
+  } | null>(null);
+  const [printingId, setPrintingId] = useState<string | null>(null);
+
+  const config = useMemo<CheckoutConfig | undefined>(
+    () =>
+      shop && {
+        serviceChargePercent: shop.serviceChargePercent,
+        vatIncluded: shop.vatIncluded,
+        promptPayId: shop.promptPayId,
+        shopName: shop.name,
+        branch: shop.branch,
+        phone: shop.phone,
+        address: shop.address,
+      },
+    [shop],
+  );
+
+  async function reprint(order: ManagedOrder) {
+    setPrintingId(order.id);
+    try {
+      setReceipt(await cashierApi.receipt(order.id));
+    } catch (e) {
+      notify.error(e);
+    } finally {
+      setPrintingId(null);
+    }
+  }
 
   const counts = useMemo(() => countByStatus(orders), [orders]);
   const filtered = useMemo(
@@ -79,7 +151,7 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
   }
 
   function reset() {
-    setQuery("");
+    onQueryChange("");
     setStatus("all");
     setPayment("all");
     setPage(1);
@@ -87,7 +159,9 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
 
   return (
     <div className="flex w-full flex-col gap-5 sm:gap-6">
-      <OrdersPageHeader onExport={() => exportOrdersCsv(filtered, `คำสั่งซื้อ-${date}.csv`)} />
+      <OrdersPageHeader
+        onExport={() => exportOrdersCsv(filtered, `คำสั่งซื้อ-${date}.csv`)}
+      />
       <NewOrdersBanner count={counts.new} onView={() => changeStatus("new")} />
       <OrderFilters
         query={query}
@@ -100,7 +174,7 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
           setPage(1);
         }}
         onQueryChange={(value) => {
-          setQuery(value);
+          onQueryChange(value);
           setPage(1);
         }}
         onStatusChange={changeStatus}
@@ -114,7 +188,10 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
         <StatusTabs value={status} counts={counts} onChange={changeStatus} />
         {visible.length > 0 ? (
           <>
-            <OrdersTable orders={visible} onView={(order) => setViewingId(order.id)} />
+            <OrdersTable
+              orders={visible}
+              onView={(order) => setViewingId(order.id)}
+            />
             <Pagination
               page={currentPage}
               pageCount={pageCount}
@@ -127,7 +204,11 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
         ) : (
           <EmptyState
             icon={<SearchX className="size-6" aria-hidden />}
-            title={orders.length === 0 ? `ยังไม่มีคำสั่งซื้อ ${dateLabel}` : "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรอง"}
+            title={
+              orders.length === 0
+                ? `ยังไม่มีคำสั่งซื้อ ${dateLabel}`
+                : "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรอง"
+            }
             description={
               orders.length === 0
                 ? "ออเดอร์ใหม่จากลูกค้าจะปรากฏที่นี่ทันที"
@@ -140,7 +221,8 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
       </Card>
 
       <p className="text-muted-foreground text-[11px]">
-        อัปเดตล่าสุด {updatedAt} • หน้านี้อัปเดตเองทันทีเมื่อมีออเดอร์ใหม่หรือสถานะเปลี่ยน
+        อัปเดตล่าสุด {updatedAt} •
+        หน้านี้อัปเดตเองทันทีเมื่อมีออเดอร์ใหม่หรือสถานะเปลี่ยน
         สถานะอาหารและการชำระเงินแสดงแยกกันเพื่อความถูกต้องในการปิดบิล
       </p>
 
@@ -148,23 +230,53 @@ function OrdersView({ orders, date, onDateChange, updatedAt, onAdvance, onCancel
         order={viewing}
         onClose={() => setViewingId(null)}
         onAdvance={onAdvance}
+        onReprint={config ? reprint : undefined}
+        reprinting={printingId === viewingId}
         onCancel={async (order, reason) => {
           await onCancel(order, reason);
           setViewingId(null);
         }}
       />
+      {receipt && config && (
+        <ReceiptSheet
+          bill={receipt.bill}
+          payment={receipt.payment}
+          config={config}
+          copy
+          onDone={() => setReceipt(null)}
+        />
+      )}
     </div>
   );
 }
 
-const TIME_FORMAT: Intl.DateTimeFormatOptions = { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit" };
+const TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  timeZone: "Asia/Bangkok",
+  hour: "2-digit",
+  minute: "2-digit",
+};
 
 export function OrdersWorkspace() {
   const [date, setDate] = useState(todayBangkok);
-  const { data, setData, error, reload } = useResource((signal) => ordersApi.list(date, signal), {
-    key: date,
-    refetchOn: [SocketEvent.OrderCreated, SocketEvent.OrderUpdated],
-  });
+  const [query, setQuery] = useState("");
+  // พิมพ์ครบ 2 ตัวอักษรขึ้นไปจึงค้นข้ามวันที่ server (รอพิมพ์เสร็จก่อน ไม่ยิงทุกตัวอักษร)
+  const [term, setTerm] = useState("");
+  useEffect(() => {
+    const id = setTimeout(
+      () =>
+        setTerm(query.trim().length >= 2 ? query.trim().replace(/^#/, "") : ""),
+      350,
+    );
+    return () => clearTimeout(id);
+  }, [query]);
+  const { data, setData, error, reload } = useResource(
+    (signal) =>
+      term ? ordersApi.search(term, signal) : ordersApi.list(date, signal),
+    {
+      key: `${date}|${term}`,
+      refetchOn: [SocketEvent.OrderCreated, SocketEvent.OrderUpdated],
+    },
+  );
   const [updatedAt, setUpdatedAt] = useState(() => new Date());
 
   // เวลาอัปเดตล่าสุดเปลี่ยนตามข้อมูลที่เข้ามาจริง
@@ -175,9 +287,14 @@ export function OrdersWorkspace() {
   }
 
   const replace = (next: ManagedOrder) =>
-    setData((current) => current?.map((order) => (order.id === next.id ? next : order)));
+    setData((current) =>
+      current?.map((order) => (order.id === next.id ? next : order)),
+    );
 
-  async function onAdvance(order: ManagedOrder, to: Exclude<FoodStatus, "cancelled">) {
+  async function onAdvance(
+    order: ManagedOrder,
+    to: Exclude<FoodStatus, "cancelled">,
+  ) {
     try {
       replace(await ordersApi.setStatus(order.id, to));
     } catch (e) {
@@ -198,8 +315,13 @@ export function OrdersWorkspace() {
   if (!data) {
     if (error) {
       return (
-        <Card role="alert" className="flex flex-col items-start gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-danger text-sm">โหลดคำสั่งซื้อไม่สำเร็จ: {error}</p>
+        <Card
+          role="alert"
+          className="flex flex-col items-start gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p className="text-danger text-sm">
+            โหลดคำสั่งซื้อไม่สำเร็จ: {error}
+          </p>
           <Button variant="outline" onClick={reload}>
             ลองใหม่
           </Button>
@@ -210,6 +332,8 @@ export function OrdersWorkspace() {
       <Skeleton>
         <OrdersView
           orders={PLACEHOLDER}
+          query=""
+          onQueryChange={() => undefined}
           date={date}
           onDateChange={() => undefined}
           updatedAt="00:00 น."
@@ -223,6 +347,8 @@ export function OrdersWorkspace() {
   return (
     <OrdersView
       orders={data}
+      query={query}
+      onQueryChange={setQuery}
       date={date}
       onDateChange={setDate}
       updatedAt={`${updatedAt.toLocaleTimeString("th-TH", TIME_FORMAT)} น.`}

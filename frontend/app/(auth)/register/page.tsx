@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { RegisterForm } from "@/features/auth/components/register-form";
-import { findPlan, parseBilling } from "@/features/landing/data";
+import { parseBilling } from "@/features/landing/data";
 
 export const metadata: Metadata = { title: "สมัครสมาชิก" };
 
@@ -11,7 +11,7 @@ export default async function RegisterPage(props: PageProps<"/register">) {
 
   return (
     <RegisterForm
-      plan={findPlan(str(plan))?.id}
+      plan={str(plan)}
       billing={parseBilling(str(billing))}
     />
   );

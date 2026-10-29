@@ -1,7 +1,10 @@
+"use client";
+
 import { CreditCard, QrCode } from "lucide-react";
 import { Badge, Button, Card } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { findPlan, TRIAL_DAYS } from "@/features/landing/data";
+import { findPlan } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 import type { BillingOverview } from "@/features/billing/lib/billing-api";
 import { describeStatus } from "@/features/billing/lib/plan-status";
 
@@ -22,14 +25,16 @@ interface CurrentPlanCardProps {
 /** แพ็กเกจของฉัน: ชื่อแพ็กเกจ สถานะ วันที่สำคัญ และปุ่มที่ต้องกดต่อตามสถานะ */
 export function CurrentPlanCard({ overview, now, busy, onSubscribe, onRenew, onUseCard, onPortal, onCancel, onResume }: CurrentPlanCardProps) {
   const { subscription: sub } = overview;
-  const plan = findPlan(sub.plan);
-  const status = describeStatus(sub, now);
+  const catalog = useCatalog();
+  const trialDays = catalog?.trialDays ?? 0;
+  const plan = findPlan(catalog, sub.plan);
+  const status = describeStatus(sub, now, plan);
   const byPromptpay = sub.method === "promptpay" && !sub.autoRenew;
   const needsSubscribe = !sub.paying && !byPromptpay;
   const card = sub.autoRenew && sub.status !== "CANCELED";
   const progress =
-    sub.status === "TRIALING" && !sub.paying && status.trialDaysLeft !== null
-      ? Math.min(100, Math.max(0, ((TRIAL_DAYS - status.trialDaysLeft) / TRIAL_DAYS) * 100))
+    sub.status === "TRIALING" && !sub.paying && status.trialDaysLeft !== null && trialDays > 0
+      ? Math.min(100, Math.max(0, ((trialDays - status.trialDaysLeft) / trialDays) * 100))
       : null;
 
   return (
@@ -58,7 +63,7 @@ export function CurrentPlanCard({ overview, now, busy, onSubscribe, onRenew, onU
             />
           </div>
           <p className="text-muted-foreground text-[11px]">
-            ใช้ไป {TRIAL_DAYS - (status.trialDaysLeft ?? 0)} จาก {TRIAL_DAYS} วัน
+            ใช้ไป {trialDays - (status.trialDaysLeft ?? 0)} จาก {trialDays} วัน
           </p>
         </div>
       )}

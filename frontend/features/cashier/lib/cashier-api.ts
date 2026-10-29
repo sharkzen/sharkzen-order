@@ -19,10 +19,11 @@ interface ApiBill {
   openedAt: string | null;
   rounds: {
     orderId: string;
-    number: number;
+    code: string;
     createdAt: string;
     served: boolean;
-    lines: { name: string; quantity: number; unitPrice: number }[];
+    notes: string[];
+    lines: { id: string; name: string; options: string[]; note: string; quantity: number; unitPrice: number }[];
   }[];
   payment: ApiPayment | null;
 }
@@ -67,9 +68,10 @@ const toBill = (bill: ApiBill): TableBill => ({
     : null,
   rounds: bill.rounds.map((round) => ({
     orderId: round.orderId,
-    number: round.number,
+    code: round.code,
     time: clock(round.createdAt),
     lines: round.lines,
+    notes: round.notes,
     served: round.served,
   })),
   payment: bill.payment ? toPayment(bill.payment) : null,
@@ -91,6 +93,40 @@ export const cashierApi = {
     clientHttp
       .get<{ bills: ApiBill[]; collectedToday: number }>("/cashier/bills", { signal })
       .then(({ data }) => ({ bills: data.bills.map(toBill), collectedToday: data.collectedToday })),
+
+  /** เพิ่มเมนูให้โต๊ะ (เป็นออเดอร์ใหม่ที่ข้ามครัว) */
+  addItem: (tableId: string, menuItemId: string, quantity = 1) =>
+    clientHttp.post(`/cashier/tables/${tableId}/items`, {
+      items: [{ menuItemId, quantity, options: [], note: "" }],
+    }),
+
+  /** ตั้งจำนวนจานของรายการ (≥ 1) */
+  setQuantity: (orderId: string, itemId: string, quantity: number) =>
+    clientHttp.patch(`/orders/${orderId}/items/${itemId}`, { quantity }),
+
+  /** ลบรายการ = ยกเลิกทุกจานที่เหลือ */
+  removeItem: (orderId: string, itemId: string, quantity: number) =>
+    clientHttp.post(`/orders/${orderId}/items/${itemId}/cancel`, { quantity, reason: "แคชเชียร์ลบรายการ" }),
+
+  /** ข้อมูลใบเสร็จของบิลที่ออเดอร์นี้ถูกชำระรวมอยู่ (พิมพ์ย้อนหลัง) */
+  receipt: (orderId: string) =>
+    clientHttp
+      .get<{
+        tableName: string;
+        payment: ApiPayment;
+        rounds: Omit<ApiBill["rounds"][number], "served" | "notes">[];
+      }>(`/cashier/orders/${orderId}/receipt`)
+      .then(({ data }) => {
+        const bill = toBill({
+          tableId: "",
+          tableName: data.tableName,
+          zone: "",
+          openedAt: null,
+          rounds: data.rounds.map((round) => ({ ...round, served: true, notes: [] })),
+          payment: data.payment,
+        });
+        return { bill, payment: bill.payment as Payment };
+      }),
 
   /** รับชำระทั้งโต๊ะ server คำนวณยอดใหม่เองแล้วคืนยอดที่บันทึกจริง */
   pay: (tableId: string, input: PayInput) =>

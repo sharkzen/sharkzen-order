@@ -109,11 +109,8 @@ export function StaffWorkspace() {
       async resetPassword(member, password) {
         try {
           await staffApi.resetPassword(member.id, password);
-          replaceMember({ ...member, mustChangePassword: true });
-          notify.success(
-            `รีเซ็ตรหัสผ่านของ ${member.name} แล้ว`,
-            "แจ้งรหัสผ่านใหม่ให้พนักงานโดยตรง พนักงานต้องเปลี่ยนรหัสเองเมื่อเข้าสู่ระบบ",
-          );
+          replaceMember({ ...member, mustChangePassword: false });
+          notify.success(`รีเซ็ตรหัสผ่านของ ${member.name} แล้ว`, "แจ้งรหัสผ่านใหม่ให้พนักงานโดยตรง");
           return true;
         } catch (e) {
           notify.error(e);
@@ -179,13 +176,14 @@ export function StaffWorkspace() {
     }
     return (
       <Skeleton>
-        <StaffView staff={PLACEHOLDER_STAFF} roles={PLACEHOLDER_ROLES} updatedAt="00:00 น." actions={NOOP_ACTIONS} />
+        <StaffView shopCode="00000000" staff={PLACEHOLDER_STAFF} roles={PLACEHOLDER_ROLES} updatedAt="00:00 น." actions={NOOP_ACTIONS} />
       </Skeleton>
     );
   }
 
   return (
     <StaffView
+      shopCode={data.shopCode}
       staff={data.staff}
       roles={data.roles}
       updatedAt={`${new Date().toLocaleTimeString("th-TH", TIME_FORMAT)} น.`}

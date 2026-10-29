@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { describeStatus } from "@/features/billing/lib/plan-status";
 import { findPlan } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 import { useShop } from "@/features/shop/components/shop-provider";
 import { cn } from "@/lib/cn";
 import { clientHttp } from "@/lib/http/client";
@@ -19,8 +20,10 @@ export function AccountStatus() {
   const { shop, subscription } = useShop();
   const [now] = useState(() => Date.now());
   const isOpen = shop?.isOpen ?? true;
-  const status = subscription ? describeStatus(subscription, now) : undefined;
-  const planName = subscription ? findPlan(subscription.plan)?.name : undefined;
+  const catalog = useCatalog();
+  const plan = subscription ? findPlan(catalog, subscription.plan) : undefined;
+  const status = subscription ? describeStatus(subscription, now, plan) : undefined;
+  const planName = plan?.name;
   const alert = status?.tone === "danger" || status?.tone === "warning";
 
   async function logout() {

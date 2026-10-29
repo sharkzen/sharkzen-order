@@ -4,18 +4,17 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
 import {
-  PRICING_PLANS,
-  TRIAL_DAYS,
-  YEARLY_FREE_MONTHS,
   formatPrice,
   yearlyPerMonth,
   yearlySavings,
   type BillingCycle,
+  type Catalog,
   type PlanId,
   type PricingPlan,
 } from "@/features/landing/data";
 
 interface PlanPickerProps {
+  catalog: Catalog;
   plan: PricingPlan;
   billing: BillingCycle;
   onPlanChange: (id: PlanId) => void;
@@ -31,6 +30,7 @@ const CYCLES: { value: BillingCycle; label: string }[] = [
 
 /** เลือกแพ็กเกจและรอบชำระเงิน หน้าตาเดียวกับส่วนราคาในหน้าแรก */
 export function PlanPicker({
+  catalog,
   plan,
   billing,
   onPlanChange,
@@ -78,8 +78,8 @@ export function PlanPicker({
             !yearly && "opacity-60",
           )}
         >
-          รายปีจ่ายแค่ {12 - YEARLY_FREE_MONTHS} เดือน ใช้ครบ 12 เดือน ประหยัดกว่า{" "}
-          {Math.round((YEARLY_FREE_MONTHS / 12) * 100)}%
+          รายปีจ่ายแค่ {12 - catalog.yearlyFreeMonths} เดือน ใช้ครบ 12 เดือน ประหยัดกว่า{" "}
+          {Math.round((catalog.yearlyFreeMonths / 12) * 100)}%
         </p>
       </div>
 
@@ -88,7 +88,7 @@ export function PlanPicker({
         aria-label="แพ็กเกจ"
         className="mx-auto grid w-full max-w-[1100px] gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6"
       >
-        {PRICING_PLANS.map((item) => {
+        {catalog.plans.map((item) => {
           const selected = item.id === plan.id;
           return (
             <div
@@ -169,7 +169,7 @@ export function PlanPicker({
 
       <div className="mx-auto flex w-full max-w-[420px] flex-col gap-3">
         <p className="text-muted-foreground text-center text-[13px]">
-          ทดลองใช้ฟรี {TRIAL_DAYS} วัน จากนั้นเริ่มเก็บเงินตามแพ็กเกจ {plan.name}
+          ทดลองใช้ฟรี {catalog.trialDays} วัน จากนั้นเริ่มเก็บเงินตามแพ็กเกจ {plan.name}
         </p>
         {footer}
       </div>

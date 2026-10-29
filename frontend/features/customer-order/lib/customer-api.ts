@@ -36,6 +36,8 @@ export interface CustomerMenuItem {
 export interface CustomerMenu {
   shop: { name: string; branch: string; hours: string | null; coverImage: string };
   table: { name: string; zone: string };
+  /** ตั๋วของรอบการนั่ง แนบกับทุกคำสั่งที่เขียนข้อมูล เปลี่ยนทุกครั้งที่พนักงานเปิดโต๊ะรอบใหม่ (null = โต๊ะยังไม่เปิด) */
+  session: string | null;
   canOrder: boolean;
   blocked: BlockReason | null;
   categories: { id: string; name: string }[];
@@ -46,7 +48,7 @@ export type CustomerOrderStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CA
 
 export interface CustomerOrder {
   id: string;
-  number: number;
+  code: string;
   status: CustomerOrderStatus;
   createdAt: string;
   total: number;
@@ -59,12 +61,22 @@ export interface PlaceOrderBody {
   notes: string[];
 }
 
+const sessionHeader = (session: string) => ({ "x-table-session": session });
+
 export const customerApi = {
   menu: (token: string, signal?: AbortSignal) =>
     clientHttp.get<CustomerMenu>(`/public/t/${token}`, { signal }).then((res) => res.data),
-  orders: (token: string, signal?: AbortSignal) =>
-    clientHttp.get<CustomerOrder[]>(`/public/t/${token}/orders`, { signal }).then((res) => res.data),
-  callStaff: (token: string) => clientHttp.post(`/public/t/${token}/call-staff`),
-  placeOrder: (token: string, body: PlaceOrderBody) =>
-    clientHttp.post<{ number: number }>(`/public/t/${token}/orders`, body).then((res) => res.data),
+  orders: (token: string, session: string, signal?: AbortSignal) =>
+    clientHttp
+      .get<CustomerOrder[]>(`/public/t/${token}/orders`, { signal, headers: sessionHeader(session) })
+      .then((res) => res.data),
+  callStaff: (token: string, session: string) =>
+    clientHttp.post(`/public/t/${token}/call-staff`, undefined, { headers: sessionHeader(session) }),
+  /** idempotencyKey: ส่งซ้ำด้วยกุญแจเดิมได้ออเดอร์เดิมคืน ไม่สร้างใหม่ */
+  placeOrder: (token: string, session: string, body: PlaceOrderBody, idempotencyKey: string) =>
+    clientHttp
+      .post<{ code: string }>(`/public/t/${token}/orders`, body, {
+        headers: { ...sessionHeader(session), "Idempotency-Key": idempotencyKey },
+      })
+      .then((res) => res.data),
 };

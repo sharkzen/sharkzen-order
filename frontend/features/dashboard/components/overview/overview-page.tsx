@@ -44,10 +44,10 @@ const PLACEHOLDER: OverviewResponse = {
   series: Array.from({ length: 24 }, (_, h) => ({ key: String(h).padStart(2, "0"), amount: 100 + ((h * 37) % 9) * 40 })),
   statuses: (["NEW", "PREPARING", "READY", "SERVED", "CANCELLED"] as const).map((status) => ({ status, count: 1 })),
   // key ของรายการมาจากชื่อเมนูและเลขออเดอร์ ข้อมูลตัวอย่างจึงต้องไม่ซ้ำกัน
-  popular: Array.from({ length: 5 }, (_, index) => ({ name: `เมนูอาหารตัวอย่าง${"​".repeat(index)}`, quantity: 1, revenue: 100 })),
+  popular: Array.from({ length: 5 }, (_, index) => ({ name: `เมนูอาหารตัวอย่าง${"​".repeat(index)}`, quantity: 1, revenue: 100, image: "" })),
   recent: Array.from({ length: 6 }, (_, index) => ({
     id: `p${index}`,
-    number: index,
+    code: `SZ-000000-PLACEH${index}`,
     createdAt: "2000-01-01T00:00:00.000Z",
     table: "โต๊ะ 0",
     total: 100,

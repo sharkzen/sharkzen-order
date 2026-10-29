@@ -26,9 +26,9 @@ export interface Subscription {
 
 export interface BillingOverview {
   subscription: Subscription;
-  usage: { tables: number; staff: number };
+  usage: { tables: number; staff: number; branches: number };
   /** null = ไม่จำกัด */
-  limits: { tables: number | null; staff: number | null };
+  limits: { tables: number | null; staff: number | null; branches: number };
 }
 
 export interface Invoice {

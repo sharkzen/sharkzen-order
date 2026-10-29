@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ShopProvider } from "@/features/shop/components/shop-provider";
+import { PermissionGate } from "@/features/auth/components/permission-gate";
 import { StaffCallListener } from "@/features/staff-call/components/staff-call-listener";
 import { SidebarContent } from "./sidebar/sidebar-content";
 import { AdminTopbar } from "./topbar/admin-topbar";
@@ -15,7 +16,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <AdminTopbar sidebar={<SidebarContent />} />
-          <main className="flex-1 p-4 sm:p-6 lg:p-8 2xl:p-10">{children}</main>
+          <main className="flex-1 p-4 sm:p-6 lg:p-8 2xl:p-10"><PermissionGate>{children}</PermissionGate></main>
         </div>
       </div>
     </ShopProvider>

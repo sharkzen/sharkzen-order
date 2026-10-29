@@ -20,10 +20,20 @@ export function FoodStatusBadge({ status }: { status: FoodStatus }) {
 export function PaymentBadge({
   status,
   method,
+  cancelled = false,
 }: {
   status: PaymentStatus;
   method: PaymentMethod;
+  /** ออเดอร์ที่ยกเลิกไม่มียอดให้ชำระ จึงไม่แสดงว่ารอชำระ */
+  cancelled?: boolean;
 }) {
+  if (cancelled && status !== "paid") {
+    return (
+      <div className="flex flex-col items-start gap-1">
+        <span className="text-muted-foreground text-xs">ไม่มียอดชำระ</span>
+      </div>
+    );
+  }
   const { label, tone, icon: Icon } = PAYMENT_BADGE[status];
   return (
     <div className="flex flex-col items-start gap-1">

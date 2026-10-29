@@ -1,4 +1,4 @@
-import { findPlan, formatBaht, type PricingPlan } from "@/features/landing/data";
+import { formatBaht, type PricingPlan } from "@/features/landing/data";
 import type { Subscription } from "./billing-api";
 
 const DAY_MS = 86_400_000;
@@ -18,8 +18,7 @@ export interface PlanStatus {
 }
 
 /** สรุปสถานะการสมัครเป็นข้อความที่เจ้าของร้านอ่านแล้วรู้ว่าต้องทำอะไรต่อ */
-export function describeStatus(sub: Subscription, now: number): PlanStatus {
-  const plan = findPlan(sub.plan);
+export function describeStatus(sub: Subscription, now: number, plan?: PricingPlan): PlanStatus {
   const price = plan ? (sub.billing === "yearly" ? plan.yearly : plan.monthly) : 0;
   const cycle = sub.billing === "yearly" ? "ปีละ" : "เดือนละ";
 
@@ -95,10 +94,3 @@ export function describeStatus(sub: Subscription, now: number): PlanStatus {
 }
 
 export type { PricingPlan };
-
-/** เพดานการใช้งานต่อแพ็กเกจ ต้องตรงกับ backend/src/lib/plans.ts (null = ไม่จำกัด) */
-export const PLAN_LIMITS: Record<string, { tables: number | null; staff: number | null }> = {
-  starter: { tables: 15, staff: 10 },
-  growth: { tables: null, staff: 10 },
-  multi: { tables: null, staff: 10 },
-};

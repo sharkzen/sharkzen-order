@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { OrderFlowDemo } from "./order-flow-demo";
 
-export function Hero() {
+export function Hero({ trialDays }: { trialDays?: number }) {
   return (
     <section className="bg-background relative isolate flex flex-1 items-center overflow-hidden px-5 py-12 md:px-12 lg:px-24">
       <div aria-hidden className="bg-grid absolute inset-0 -z-10" />
@@ -25,7 +25,7 @@ export function Hero() {
               className={buttonVariants({ size: "lg" })}
             >
               <ArrowRight className="size-[18px]" aria-hidden />
-              ทดลองฟรี 14 วัน
+              {trialDays ? `ทดลองฟรี ${trialDays} วัน` : "ทดลองใช้ฟรี"}
             </Link>
             <Link
               href="#preview"

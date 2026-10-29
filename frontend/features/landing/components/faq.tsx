@@ -4,7 +4,9 @@ import { buttonVariants } from "@/components/ui";
 import Link from "next/link";
 import { FAQS } from "@/features/landing/data";
 
-export function Faq() {
+/** {trial} ในคำตอบแทนด้วยจำนวนวันทดลองจริงจากระบบ */
+export function Faq({ trialDays }: { trialDays?: number }) {
+  const trial = trialDays ? `${trialDays} วัน` : "ตามช่วงเวลาที่ระบบกำหนด";
   return (
     <Section
       id="faq"
@@ -49,7 +51,7 @@ export function Faq() {
                 aria-hidden
               />
             </summary>
-            <p className="text-muted-foreground mt-[10px] text-sm">{item.a}</p>
+            <p className="text-muted-foreground mt-[10px] text-sm">{item.a.replace("{trial}", trial)}</p>
           </details>
         ))}
       </div>

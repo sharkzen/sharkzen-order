@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Button, Dialog, FormField, Input, Select } from "@/components/ui";
 import { accessibleResources } from "@/features/staff-management/lib/permission-utils";
 import { USERNAME_PATTERN, checkPassword } from "@/features/staff-management/lib/password";
 import type { Role, StaffMember } from "@/features/staff-management/types";
+import { staffApi } from "@/features/staff-management/lib/staff-api";
+import { cn } from "@/lib/cn";
 import { PasswordField } from "./password-field";
 
 export interface MemberValues {
@@ -57,20 +59,38 @@ function MemberForm({
     editing?.roleId ?? assignable[0]?.id ?? "",
   );
   const [submitted, setSubmitted] = useState(false);
-
   const trimmedUsername = username.trim();
+  const unchanged = editing !== null && trimmedUsername === editing.username;
+  const formatOk = USERNAME_PATTERN.test(trimmedUsername);
+
+  /** ผลตรวจชื่อผู้ใช้กับฐานข้อมูล (ผูกกับชื่อที่ตรวจ เพื่อทิ้งผลของชื่อที่พิมพ์ผ่านไปแล้ว) */
+  const [check, setCheck] = useState<{ name: string; available: boolean; suggestions: string[] } | null>(null);
+  useEffect(() => {
+    if (!formatOk || unchanged) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      staffApi
+        .checkUsername(trimmedUsername, editing?.id, controller.signal)
+        .then((result) => setCheck({ name: trimmedUsername, available: result.available, suggestions: result.suggestions }))
+        .catch(() => undefined);
+    }, 350);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [trimmedUsername, formatOk, unchanged, editing?.id]);
+
+  const current = check?.name === trimmedUsername ? check : null;
+  const checking = formatOk && !unchanged && !current;
+  const taken = current?.available === false;
   const errors = {
     name: name.trim() ? "" : "กรอกชื่อพนักงาน",
     username: !trimmedUsername
       ? "ตั้งชื่อผู้ใช้สำหรับเข้าสู่ระบบ"
       : !USERNAME_PATTERN.test(trimmedUsername)
         ? "ใช้ a-z ตัวเลข จุด หรือขีดล่าง ยาว 4–20 ตัว เช่น somchai.k"
-        : members.some(
-              (member) =>
-                member.id !== editing?.id &&
-                member.username === trimmedUsername,
-            )
-          ? "ชื่อผู้ใช้นี้มีคนใช้แล้ว"
+        : taken || members.some((member) => member.id !== editing?.id && member.username === trimmedUsername)
+          ? "ไม่สามารถใช้งานได้ ชื่อผู้ใช้นี้มีคนใช้แล้ว"
           : "",
     password: editing ? "" : checkPassword(password),
   };
@@ -81,7 +101,7 @@ function MemberForm({
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSubmitted(true);
-    if (errors.name || errors.username || errors.password) return;
+    if (errors.name || errors.username || errors.password || checking) return;
     onSubmit({
       name: name.trim(),
       username: trimmedUsername,
@@ -97,11 +117,11 @@ function MemberForm({
           <p aria-hidden className="font-display pr-10 text-xl font-semibold">
             {editing ? "แก้ไขพนักงาน" : "สร้างบัญชีพนักงาน"}
           </p>
-          <p className="text-muted-foreground text-[13px]">
-            {editing
-              ? "เปลี่ยนชื่อ ชื่อผู้ใช้ หรือบทบาทของพนักงาน หากลืมรหัสผ่านให้ใช้ปุ่มรีเซ็ตรหัสผ่านในรายชื่อ"
-              : "ตั้งชื่อผู้ใช้และรหัสผ่านให้พนักงาน แล้วแจ้งพนักงานโดยตรง พนักงานจะต้องเปลี่ยนรหัสผ่านเองเมื่อเข้าสู่ระบบครั้งแรก"}
-          </p>
+          {editing && (
+            <p className="text-muted-foreground text-[13px]">
+              เปลี่ยนชื่อ ชื่อผู้ใช้ หรือบทบาทของพนักงาน หากลืมรหัสผ่านให้ใช้ปุ่มรีเซ็ตรหัสผ่านในรายชื่อ
+            </p>
+          )}
         </div>
 
         <FormField
@@ -124,8 +144,8 @@ function MemberForm({
           label="ชื่อผู้ใช้"
           htmlFor="member-username"
           required
-          hint="ใช้เข้าสู่ระบบ ตัวพิมพ์เล็กเท่านั้น"
-          error={submitted ? errors.username : ""}
+          hint={formatOk ? undefined : "ใช้ a-z ตัวเลข จุด หรือขีดล่าง ยาว 4–20 ตัว (ตัวพิมพ์เล็กเท่านั้น)"}
+          error={taken || submitted ? errors.username : ""}
         >
           <Input
             id="member-username"
@@ -135,13 +155,37 @@ function MemberForm({
             autoComplete="off"
             autoCapitalize="none"
             spellCheck={false}
+            maxLength={20}
           />
+          {formatOk && !unchanged && (
+            <p
+              aria-live="polite"
+              className={cn("text-xs", checking ? "text-muted-foreground" : taken ? "hidden" : "text-success-strong font-medium")}
+            >
+              {checking ? "กำลังตรวจสอบชื่อผู้ใช้..." : !taken ? "✓ ใช้ชื่อนี้ได้" : ""}
+            </p>
+          )}
+          {taken && current && current.suggestions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground text-xs">ลองใช้แทน:</span>
+              {current.suggestions.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => setUsername(name)}
+                  className="border-border bg-surface text-primary-strong hover:bg-primary-soft focus-visible:ring-primary/50 cursor-pointer rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          )}
         </FormField>
 
         {!editing && (
           <PasswordField
             id="member-password"
-            label="รหัสผ่านเริ่มต้น"
+            label="รหัสผ่าน"
             value={password}
             error={submitted ? errors.password : ""}
             onChange={setPassword}

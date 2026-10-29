@@ -4,8 +4,6 @@ import { Check, CreditCard, QrCode } from "lucide-react";
 import { Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 import {
-  PRICING_PLANS,
-  YEARLY_FREE_MONTHS,
   formatPrice,
   yearlyPerMonth,
   yearlySavings,
@@ -13,6 +11,7 @@ import {
   type PlanId,
   type PricingPlan,
 } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 import type { PayMethod } from "@/features/billing/lib/billing-api";
 
 const CYCLES: { value: BillingCycle; label: string }[] = [
@@ -68,6 +67,9 @@ interface PlanCardsProps {
 
 /** เลือกรอบบิลและแพ็กเกจ หน้าตาเดียวกับหน้าราคา แต่แต่ละการ์ดมีปุ่มของตัวเอง */
 export function PlanCards({ billing, onBillingChange, method, onMethodChange, methodLocked, stateOf, busyPlan, onChoose }: PlanCardsProps) {
+  const catalog = useCatalog();
+  const plans = catalog?.plans ?? [];
+  const freeMonths = catalog?.yearlyFreeMonths ?? 0;
   const yearly = billing === "yearly";
 
   return (
@@ -98,7 +100,7 @@ export function PlanCards({ billing, onBillingChange, method, onMethodChange, me
           ))}
         </div>
         <p className={cn("text-success-strong text-center text-[13px] font-semibold transition-opacity", !yearly && "opacity-60")}>
-          รายปีจ่ายแค่ {12 - YEARLY_FREE_MONTHS} เดือน ใช้ครบ 12 เดือน
+          รายปีจ่ายแค่ {12 - freeMonths} เดือน ใช้ครบ 12 เดือน
         </p>
       </div>
 
@@ -138,7 +140,7 @@ export function PlanCards({ billing, onBillingChange, method, onMethodChange, me
       </fieldset>
 
       <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {PRICING_PLANS.map((item) => {
+        {plans.map((item) => {
           const state = stateOf(item);
           return (
             <li

@@ -10,7 +10,7 @@ type ApiStatus = "NEW" | "PREPARING" | "READY" | "SERVED" | "CANCELLED";
 /** ออเดอร์จาก backend (ตรงกับ orderDto) */
 export interface ApiOrder {
   id: string;
-  number: number;
+  code: string;
   createdAt: string;
   table: string;
   zone: string;
@@ -62,11 +62,14 @@ const TIME_FORMAT: Intl.DateTimeFormatOptions = {
   hour12: false,
 };
 
-export function toManagedOrder(order: ApiOrder): ManagedOrder {
+const DAY_FORMAT: Intl.DateTimeFormatOptions = { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "2-digit" };
+
+export function toManagedOrder(order: ApiOrder, withDate = false): ManagedOrder {
   return {
     id: order.id,
-    code: `#${order.number}`,
+    code: order.code,
     time: new Date(order.createdAt).toLocaleTimeString("th-TH", TIME_FORMAT),
+    ...(withDate && { date: new Date(order.createdAt).toLocaleDateString("th-TH", DAY_FORMAT) }),
     table: order.table,
     items: order.items,
     total: order.total,
@@ -82,7 +85,13 @@ export const ordersApi = {
   list: (date: string, signal?: AbortSignal) =>
     clientHttp
       .get<ApiOrder[]>("/orders", { params: { from: date, to: date }, signal })
-      .then((res) => res.data.map(toManagedOrder)),
+      .then((res) => res.data.map((order) => toManagedOrder(order))),
+
+  /** ค้นหาจากรหัสออเดอร์หรือโต๊ะ ข้ามทุกวัน (ล่าสุดก่อน สูงสุด 100 รายการ) */
+  search: (q: string, signal?: AbortSignal) =>
+    clientHttp
+      .get<ApiOrder[]>("/orders", { params: { q }, signal })
+      .then((res) => res.data.map((order) => toManagedOrder(order, true))),
 
   setStatus: (id: string, status: Exclude<FoodStatus, "cancelled">) =>
     clientHttp

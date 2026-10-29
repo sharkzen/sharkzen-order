@@ -15,5 +15,7 @@ export interface ApiErrorBody {
   message?: string;
   /** รหัสให้ตัดสินใจต่อ เช่น EMAIL_NOT_VERIFIED, OTP_LOCKED */
   code?: string;
+  /** เหตุผลที่ผู้ดูแลระบบระบุตอนแบน/ระงับ (มากับ ACCOUNT_BANNED, SHOP_SUSPENDED) */
+  reason?: string;
   errors?: Record<string, string[]>;
 }

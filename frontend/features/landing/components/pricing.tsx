@@ -9,30 +9,33 @@ import { buttonVariants } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/cn";
 import {
-  PRICING_PLANS,
-  TRIAL_DAYS,
-  YEARLY_FREE_MONTHS,
   formatBaht,
   formatPrice,
   yearlyPerMonth,
   yearlySavings,
   type BillingCycle,
+  type Catalog,
 } from "@/features/landing/data";
+import { useCatalog } from "@/features/pricing/lib/catalog";
 
 const CYCLES: { value: BillingCycle; label: string }[] = [
   { value: "monthly", label: "รายเดือน" },
   { value: "yearly", label: "รายปี" },
 ];
 
-export function Pricing() {
+export function Pricing({ catalog: initial }: { catalog: Catalog | null }) {
+  const catalog = useCatalog(initial);
   const [billing, setBilling] = useState<BillingCycle>("yearly");
   const yearly = billing === "yearly";
+  const plans = catalog?.plans ?? [];
+  const freeMonths = catalog?.yearlyFreeMonths ?? 0;
+  const cheapest = plans.length ? Math.min(...plans.map((plan) => plan.monthly)) : undefined;
 
   return (
     <Section id="pricing" tone="muted" innerClassName="flex flex-col gap-9">
       <SectionHeading
         title="ราคาโปร่งใส เติบโตไปด้วยกัน"
-        description={`เริ่มต้นเพียงเดือนละ ${formatBaht(PRICING_PLANS[0].monthly)} บาท • ไม่มีค่าธรรมเนียมต่อออร์เดอร์ • ทุกแพ็กเกจทดลองใช้ฟรี ${TRIAL_DAYS} วัน`}
+        description={`${cheapest ? `เริ่มต้นเพียงเดือนละ ${formatBaht(cheapest)} บาท • ` : ""}ไม่มีค่าธรรมเนียมต่อออร์เดอร์${catalog ? ` • ทุกแพ็กเกจทดลองใช้ฟรี ${catalog.trialDays} วัน` : ""}`}
         className="gap-2.5"
       />
 
@@ -73,13 +76,13 @@ export function Pricing() {
             !yearly && "opacity-60",
           )}
         >
-          รายปีจ่ายแค่ {12 - YEARLY_FREE_MONTHS} เดือน ใช้ครบ 12 เดือน
-          ประหยัดกว่า {Math.round((YEARLY_FREE_MONTHS / 12) * 100)}%
+          รายปีจ่ายแค่ {12 - freeMonths} เดือน ใช้ครบ 12 เดือน
+          ประหยัดกว่า {Math.round((freeMonths / 12) * 100)}%
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {PRICING_PLANS.map((plan) => (
+        {plans.map((plan) => (
           <article
             key={plan.id}
             className={cn(

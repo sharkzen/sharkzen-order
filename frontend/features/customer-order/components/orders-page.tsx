@@ -9,10 +9,10 @@ import { siteConfig } from "@/config/site";
 import { toApiError } from "@/lib/http/api-error";
 import { customerApi, type CustomerOrder } from "@/features/customer-order/lib/customer-api";
 import { baht, timeLabel } from "@/features/customer-order/lib/format";
+import { useTableLive } from "@/features/customer-order/lib/use-table-live";
 import { CustomerNav } from "./customer-nav";
 import { OrderProgress } from "./order-progress";
 
-const POLL_MS = 10_000;
 /** รายการอาหารที่แสดงก่อนกด "ดูทั้งหมด" */
 const PREVIEW_ITEMS = 3;
 
@@ -80,7 +80,7 @@ function OrderCard({ order }: { order: CustomerOrder }) {
     <li className="bg-primary-soft flex flex-col gap-4 rounded-3xl p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="font-display text-foreground text-lg leading-tight font-bold">ออเดอร์ #{order.number}</p>
+          <p className="font-display text-foreground text-lg leading-tight font-bold">ออเดอร์ {order.code}</p>
           <p className="text-muted-foreground text-xs tabular-nums">สั่งเมื่อ {timeLabel(order.createdAt)} น.</p>
         </div>
         <span className="bg-surface text-primary-strong rounded-full px-3 py-1.5 text-xs font-semibold">{count} รายการ</span>
@@ -131,7 +131,8 @@ export function OrdersPage({ token }: { token: string }) {
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       try {
-        const [menu, next] = await Promise.all([customerApi.menu(token, signal), customerApi.orders(token, signal)]);
+        const menu = await customerApi.menu(token, signal);
+        const next = menu.session ? await customerApi.orders(token, menu.session, signal) : [];
         setTableName(menu.table.name);
         setOrders(next);
         setError(null);
@@ -146,14 +147,9 @@ export function OrdersPage({ token }: { token: string }) {
   useEffect(() => {
     const controller = new AbortController();
     void refresh(controller.signal);
-    const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh(controller.signal);
-    }, POLL_MS);
-    return () => {
-      controller.abort();
-      clearInterval(timer);
-    };
+    return () => controller.abort();
   }, [refresh]);
+  useTableLive(token, () => void refresh());
 
   if (error && !orders) {
     const invalid = error === "invalid";

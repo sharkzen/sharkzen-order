@@ -27,6 +27,8 @@ export interface StaffActions {
 }
 
 interface StaffViewProps {
+  /** รหัสร้านที่พนักงานใช้เข้าสู่ระบบ */
+  shopCode: string;
   staff: StaffMember[];
   roles: Role[];
   updatedAt: string;
@@ -48,6 +50,7 @@ interface StaffViewProps {
 export function StaffView({
   staff,
   roles,
+  shopCode,
   updatedAt,
   actions,
   canCreate = true,
@@ -161,6 +164,7 @@ export function StaffView({
   return (
     <div className="flex w-full flex-col gap-5 sm:gap-6">
       <StaffPageHeader
+        shopCode={shopCode}
         onAdd={canCreate ? () => setMemberTarget("new") : undefined}
       />
 

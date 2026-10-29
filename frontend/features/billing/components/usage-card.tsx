@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Armchair, Users, type LucideIcon } from "lucide-react";
+import { Armchair, Store, Users, type LucideIcon } from "lucide-react";
 import { Card } from "@/components/ui";
 import { ROUTES } from "@/constants/routes";
 import { cn } from "@/lib/cn";
@@ -10,7 +10,8 @@ interface MeterProps {
   label: string;
   used: number;
   limit: number | null;
-  href: string;
+  /** ลิงก์ไปหน้าจัดการ ไม่ใส่ = แสดงเป็นข้อความธรรมดา */
+  href?: string;
 }
 
 function Meter({ icon: Icon, label, used, limit, href }: MeterProps) {
@@ -21,10 +22,17 @@ function Meter({ icon: Icon, label, used, limit, href }: MeterProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-3">
-        <Link href={href} className="text-foreground flex items-center gap-2 text-sm font-medium hover:underline">
-          <Icon className="text-muted-foreground size-4" aria-hidden />
-          {label}
-        </Link>
+        {href ? (
+          <Link href={href} className="text-foreground flex items-center gap-2 text-sm font-medium hover:underline">
+            <Icon className="text-muted-foreground size-4" aria-hidden />
+            {label}
+          </Link>
+        ) : (
+          <p className="text-foreground flex items-center gap-2 text-sm font-medium">
+            <Icon className="text-muted-foreground size-4" aria-hidden />
+            {label}
+          </p>
+        )}
         <p className="text-sm tabular-nums">
           <span className={cn("font-semibold", full ? "text-danger-strong" : "text-foreground")}>{used}</span>
           <span className="text-muted-foreground"> / {limit ?? "ไม่จำกัด"}</span>
@@ -60,6 +68,7 @@ export function UsageCard({ overview }: { overview: BillingOverview }) {
         <h2 className="text-foreground text-base font-semibold">การใช้งานของร้าน</h2>
         <p className="text-muted-foreground text-xs">เทียบกับสิทธิ์ของแพ็กเกจปัจจุบัน</p>
       </div>
+      <Meter icon={Store} label="สาขา" used={overview.usage.branches} limit={overview.limits.branches} />
       <Meter icon={Armchair} label="โต๊ะ" used={overview.usage.tables} limit={overview.limits.tables} href={ROUTES.tables} />
       <Meter icon={Users} label="บัญชีพนักงาน" used={overview.usage.staff} limit={overview.limits.staff} href={ROUTES.staff} />
     </Card>
