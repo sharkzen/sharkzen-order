@@ -1,11 +1,14 @@
 import type { FastifyPluginAsync } from "fastify";
-import { orderController } from "@/controllers/order.controller.js";
+import { orderController, sessionTokenOf } from "@/controllers/order.controller.js";
 import { prisma } from "@/lib/prisma.js";
+import { PLANS } from "@/lib/plans.js";
+import { getSettings } from "@/lib/settings.js";
 import { notificationService } from "@/services/notification.service.js";
 import { optionGroupsSchema } from "@/schemas/menu.schema.js";
 import { tokenParamsSchema } from "@/schemas/order.schema.js";
+import { encodeSessionToken } from "@/lib/table-token.js";
 import { listSessionOrders } from "@/services/order.service.js";
-import { findTableByToken } from "@/services/table.service.js";
+import { assertTableSession, findTableByToken } from "@/services/table.service.js";
 
 type DayHours = { open: boolean; from: string; to: string };
 
@@ -20,6 +23,24 @@ function todayHours(hours: unknown) {
 
 /** ฝั่งลูกค้าหลังสแกน QR ที่โต๊ะ (ไม่ต้องล็อกอิน) ทุกเส้นระบุร้าน/โต๊ะด้วย token เข้ารหัสใน URL */
 export const publicRoutes: FastifyPluginAsync = async (app) => {
+  /** ช่องทางติดต่อผู้ดูแลระบบ แสดงในหน้าต่างเมื่อบัญชี/ร้านถูกระงับ */
+  /** แพ็กเกจที่เปิดขาย + ค่าทดลอง/แถมรายปี ใช้ทั้งหน้าแรก หน้าสมัคร และหน้าแพ็กเกจ (ข้อมูลเดียวกับที่ใช้คิดเงินจริง) */
+  app.get("/plans", () => {
+    const { trialDays, yearlyFreeMonths } = getSettings();
+    const plans = Object.values(PLANS)
+      .filter((plan) => plan.active)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map(({ id, name, description, monthly, yearly, cta, perks, featured, limits }) => ({
+        id, name, description, monthly, yearly, cta, perks, featured, limits,
+      }));
+    return { plans, trialDays, yearlyFreeMonths };
+  });
+
+  app.get("/support", () => {
+    const { supportEmail, supportPhone, supportLine } = getSettings();
+    return { email: supportEmail, phone: supportPhone, line: supportLine };
+  });
+
   app.get("/t/:token", async (request) => {
     const { token } = tokenParamsSchema.parse(request.params);
     const table = await findTableByToken(token);
@@ -42,6 +63,8 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     return {
       shop: { name: shop.name, branch: shop.branch, hours: todayHours(shop.hours), coverImage: shop.coverImage },
       table: { name: table.name, zone: table.zone },
+      /** ตั๋วของรอบที่นั่งอยู่ ต้องแนบ header x-table-session ตอนสั่ง/เรียกพนักงาน/ดูออเดอร์ (null = โต๊ะยังไม่เปิด) */
+      session: table.sessionId ? encodeSessionToken(table.sessionId) : null,
       canOrder: blocked === null,
       blocked,
       categories: categories.map(({ id, name }) => ({ id, name })),
@@ -62,7 +85,9 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
   app.get("/t/:token/orders", async (request) => {
     const { token } = tokenParamsSchema.parse(request.params);
     const table = await findTableByToken(token);
-    return table.sessionId ? listSessionOrders(table.shopId, table.sessionId) : [];
+    if (!table.sessionId) return [];
+    assertTableSession(table, sessionTokenOf(request));
+    return listSessionOrders(table.shopId, table.sessionId);
   });
 
   app.post(
@@ -78,6 +103,7 @@ export const publicRoutes: FastifyPluginAsync = async (app) => {
     async (request, reply) => {
       const { token } = tokenParamsSchema.parse(request.params);
       const table = await findTableByToken(token);
+      assertTableSession(table, sessionTokenOf(request));
       await notificationService.push(request.server.io, table.shopId, {
         type: "STAFF_CALL",
         title: `${table.name} เรียกพนักงาน`,

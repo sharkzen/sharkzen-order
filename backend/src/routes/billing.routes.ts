@@ -4,7 +4,7 @@ import { billingService } from "@/services/billing.service.js";
 import { shopHandler } from "@/utils/route.js";
 
 const choiceSchema = z.object({
-  plan: z.enum(["starter", "growth", "multi"]),
+  plan: z.string().min(1).max(40),
   billing: z.enum(["monthly", "yearly"]),
 });
 const checkoutSchema = choiceSchema.extend({ method: z.enum(["card", "promptpay"]).default("card") });

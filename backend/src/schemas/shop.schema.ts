@@ -29,3 +29,9 @@ export const updateShopBodySchema = z.object({
 export const setShopOpenBodySchema = z.object({ isOpen: z.boolean() });
 
 export type UpdateShopBody = z.infer<typeof updateShopBodySchema>;
+
+export const createBranchBodySchema = z.object({
+  branch: z.string().trim().min(1, "กรุณาตั้งชื่อสาขา").max(60),
+});
+
+export const switchBranchBodySchema = z.object({ shopId: z.string().uuid() });

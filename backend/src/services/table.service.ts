@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Table } from "@prisma/client";
 import { billingService } from "@/services/billing.service.js";
 import { prisma } from "@/lib/prisma.js";
-import { decodeTableToken, encodeTableToken } from "@/lib/table-token.js";
+import { decodeTableToken, encodeTableToken, isSessionToken } from "@/lib/table-token.js";
 import type { CreateTablesBody, UpdateTableBody } from "@/schemas/table.schema.js";
 import { AppError, notFound } from "@/utils/errors.js";
 
@@ -38,11 +38,21 @@ export async function findTableByToken(token: string) {
   const table = decoded
     ? await prisma.table.findFirst({
         where: { id: decoded.tableId, shopId: decoded.shopId },
-        include: { shop: true },
+        include: { shop: { include: { owner: { select: { bannedAt: true, banReason: true } } } } },
       })
     : null;
   if (!table) throw new AppError(404, "ไม่พบโต๊ะนี้ กรุณาสแกน QR ที่โต๊ะใหม่อีกครั้ง", "TABLE_NOT_FOUND");
+  // ร้านถูกระงับ หรือเจ้าของถูกแบน: ลูกค้าหน้าโต๊ะดูเมนู/สั่งอาหารไม่ได้
+  if (table.shop.suspendedAt || table.shop.owner.bannedAt) throw new AppError(403, "ร้านนี้ปิดให้บริการชั่วคราว", "SHOP_UNAVAILABLE");
   return table;
+}
+
+/** ลูกค้าต้องถือตั๋วของรอบที่โต๊ะเปิดอยู่ตอนนี้ ไม่งั้น = รอบนั้นจบไปแล้ว (หน้าเก่า/ลิงก์เก่า) ให้สแกนหรือโหลดหน้าใหม่ */
+export function assertTableSession(table: Table, sessionToken: string | undefined) {
+  if (!table.sessionId) throw new AppError(409, "โต๊ะนี้ยังไม่เปิด กรุณาแจ้งพนักงาน", "TABLE_CLOSED");
+  if (!isSessionToken(table.sessionId, sessionToken)) {
+    throw new AppError(409, "รอบการนั่งนี้สิ้นสุดแล้ว กรุณาโหลดหน้านี้ใหม่", "SESSION_ENDED");
+  }
 }
 
 export const tableService = {

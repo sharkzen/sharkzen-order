@@ -5,7 +5,7 @@ import { dashboardService } from "@/services/dashboard.service.js";
 
 export const dashboardController = {
   async overview(request: FastifyRequest) {
-    const shopId = await shopService.idForUser(request.user.sub);
+    const shopId = request.staff?.shopId ?? (await shopService.idForUser(request.user.sub));
     return dashboardService.overview(shopId, dashboardQuerySchema.parse(request.query));
   },
 };

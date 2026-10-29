@@ -1,7 +1,8 @@
 import type { BillingCycle, Subscription, SubscriptionStatus } from "@prisma/client";
 import type Stripe from "stripe";
 import { env } from "@/config/env.js";
-import { effectivePlan, isPlanId, PLANS, TRIAL_DAYS, type Cycle, type PlanId } from "@/lib/plans.js";
+import { assertSelectable, effectivePlan, isPlanId, PLANS, type Cycle, type PlanId } from "@/lib/plans.js";
+import { getSettings } from "@/lib/settings.js";
 import { prisma } from "@/lib/prisma.js";
 import { stripe } from "@/lib/stripe.js";
 import { AppError } from "@/utils/errors.js";
@@ -68,21 +69,23 @@ async function getOrCreate(userId: string) {
       plan: isPlanId(user.plan) ? user.plan : "growth",
       billingCycle: user.billingCycle ?? "YEARLY",
       status: "TRIALING",
-      trialEndsAt: new Date(user.createdAt.getTime() + TRIAL_DAYS * DAY_MS),
+      trialEndsAt: new Date(user.createdAt.getTime() + getSettings().trialDays * DAY_MS),
     },
   });
 }
 
 /** price ของ Stripe ต่อแพ็กเกจ+รอบบิล สร้างครั้งแรกที่ใช้แล้วหาซ้ำด้วย lookup_key (ราคาตรงกับ PLANS เสมอ) */
 async function ensurePrice(plan: PlanId, cycle: Cycle) {
-  const lookupKey = `sharkzen_${plan}_${cycle}`;
+  const def = PLANS[plan];
+  const amount = cycle === "yearly" ? def.yearly : def.monthly;
+  // ราคาอยู่ใน key ด้วย: ผู้ดูแลเปลี่ยนราคาแล้วต้องสร้าง price ใหม่ (คนที่สมัครไว้แล้วยังถูกคิดราคาเดิม)
+  const lookupKey = `sharkzen_${plan}_${cycle}_${amount}`;
   const found = await stripe.prices.list({ lookup_keys: [lookupKey], active: true, limit: 1 });
   if (found.data[0]) return found.data[0].id;
 
-  const def = PLANS[plan];
   const price = await stripe.prices.create({
     currency: "thb",
-    unit_amount: (cycle === "yearly" ? def.yearly : def.monthly) * 100,
+    unit_amount: amount * 100,
     recurring: { interval: cycle === "yearly" ? "year" : "month" },
     lookup_key: lookupKey,
     transfer_lookup_key: true,
@@ -194,20 +197,21 @@ export const billingService = {
         plan,
         billingCycle: fromCycle(billing),
         status: "TRIALING",
-        trialEndsAt: new Date(Date.now() + TRIAL_DAYS * DAY_MS),
+        trialEndsAt: new Date(Date.now() + getSettings().trialDays * DAY_MS),
       },
     });
   },
 
   async overview(userId: string, shopId: string) {
     const sub = await getOrCreate(userId);
-    const [tables, staff] = await Promise.all([
+    const [tables, staff, branches] = await Promise.all([
       prisma.table.count({ where: { shopId } }),
       prisma.staffMember.count({ where: { shopId } }),
+      prisma.shop.count({ where: { ownerId: userId } }),
     ]);
     return {
       subscription: subscriptionDto(sub),
-      usage: { tables, staff },
+      usage: { tables, staff, branches },
       limits: effectivePlan(sub.plan).limits,
     };
   },
@@ -218,6 +222,7 @@ export const billingService = {
    * - promptpay: จ่ายครั้งเดียวต่อ 1 รอบบิล (1 เดือน หรือ 12 เดือน) แล้วต่ออายุเองเมื่อใกล้หมด
    */
   async createCheckout(userId: string, plan: PlanId, cycle: Cycle, method: PayMethod) {
+    assertSelectable(plan);
     const sub = await getOrCreate(userId);
     if (livePaying(sub)) {
       throw new AppError(409, "คุณสมัครแบบตัดบัตรอัตโนมัติอยู่แล้ว ใช้ปุ่มเปลี่ยนแพ็กเกจแทน", "ALREADY_SUBSCRIBED");
@@ -339,23 +344,28 @@ export const billingService = {
 
   /** เปลี่ยนแพ็กเกจ/รอบบิลของคนที่สมัครอยู่แล้ว Stripe คิดส่วนต่างตามสัดส่วนให้ */
   async changePlan(userId: string, plan: PlanId, cycle: Cycle) {
+    assertSelectable(plan);
     const sub = await getOrCreate(userId);
     if (!sub.stripeSubscriptionId || !livePaying(sub)) {
       throw new AppError(409, "ยังไม่ได้สมัครแพ็กเกจแบบชำระเงิน", "NOT_SUBSCRIBED");
     }
     // ลดแพ็กเกจไม่ได้ถ้าการใช้งานตอนนี้เกินเพดานของแพ็กเกจปลายทาง
-    const shop = await prisma.shop.findUnique({ where: { ownerId: userId }, select: { id: true } });
-    if (shop) {
-      const limits = PLANS[plan].limits;
+    const shops = await prisma.shop.findMany({ where: { ownerId: userId }, select: { id: true, branch: true } });
+    const limits = PLANS[plan].limits;
+    if (shops.length > limits.branches) {
+      throw new AppError(409, `ตอนนี้มี ${shops.length} สาขา แพ็กเกจ${PLANS[plan].name}มีได้ไม่เกิน ${limits.branches} สาขา`, "PLAN_LIMIT");
+    }
+    for (const shop of shops) {
+      const where = shop.branch ? `สาขา${shop.branch}` : "ร้านนี้";
       const [tables, staff] = await Promise.all([
         prisma.table.count({ where: { shopId: shop.id } }),
         prisma.staffMember.count({ where: { shopId: shop.id } }),
       ]);
       if (limits.tables !== null && tables > limits.tables) {
-        throw new AppError(409, `ตอนนี้มี ${tables} โต๊ะ แพ็กเกจ${PLANS[plan].name}มีได้ไม่เกิน ${limits.tables} ลดโต๊ะก่อน`, "PLAN_LIMIT");
+        throw new AppError(409, `${where}มี ${tables} โต๊ะ แพ็กเกจ${PLANS[plan].name}มีได้ไม่เกิน ${limits.tables} ลดโต๊ะก่อน`, "PLAN_LIMIT");
       }
       if (limits.staff !== null && staff > limits.staff) {
-        throw new AppError(409, `ตอนนี้มีพนักงาน ${staff} คน แพ็กเกจ${PLANS[plan].name}มีได้ไม่เกิน ${limits.staff} ลดก่อน`, "PLAN_LIMIT");
+        throw new AppError(409, `${where}มีพนักงาน ${staff} คน แพ็กเกจ${PLANS[plan].name}มีได้ไม่เกิน ${limits.staff} ลดก่อน`, "PLAN_LIMIT");
       }
     }
     const current = await stripe.subscriptions.retrieve(sub.stripeSubscriptionId);
@@ -475,6 +485,26 @@ export const billingService = {
       }
       default:
         return false;
+    }
+  },
+
+  /** แพ็กเกจที่บัญชีนี้ใช้สิทธิ์อยู่ตอนนี้ (ยังไม่ได้เลือก = เท่าแพ็กเกจเติบโตช่วงทดลอง) */
+  async planOf(userId: string) {
+    return effectivePlan((await getOrCreate(userId)).plan);
+  },
+
+  /** ตรวจเพดานจำนวนสาขาตามแพ็กเกจก่อนสร้างสาขาใหม่ */
+  async assertBranchLimit(userId: string) {
+    const [sub, count] = await Promise.all([getOrCreate(userId), prisma.shop.count({ where: { ownerId: userId } })]);
+    const plan = effectivePlan(sub.plan);
+    if (count + 1 > plan.limits.branches) {
+      throw new AppError(
+        403,
+        plan.limits.branches === 1
+          ? `แพ็กเกจ${plan.name}มีได้ 1 สาขา อัปเกรดเป็นแพ็กเกจหลายสาขาเพื่อเพิ่มสาขา`
+          : `แพ็กเกจ${plan.name}มีได้สูงสุด ${plan.limits.branches} สาขา (ตอนนี้ ${count})`,
+        "PLAN_LIMIT",
+      );
     }
   },
 

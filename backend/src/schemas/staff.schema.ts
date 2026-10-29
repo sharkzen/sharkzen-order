@@ -30,6 +30,11 @@ export const updateStaffBodySchema = z.object({
   suspended: z.boolean().optional(),
 });
 
+export const usernameQuerySchema = z.object({
+  username: z.string().max(60).default(""),
+  exceptId: z.string().max(60).optional(),
+});
+
 export const resetPasswordBodySchema = z.object({ password });
 
 export type RoleBody = z.infer<typeof roleBodySchema>;

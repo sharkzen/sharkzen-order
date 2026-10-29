@@ -5,10 +5,13 @@ import { env } from "./config/env.js";
 import { authPlugin } from "./plugins/auth.js";
 import { socketPlugin } from "./plugins/socket.js";
 import { routes } from "./routes/index.js";
+import { loadPlans } from "./lib/plans.js";
+import { loadSettings } from "./lib/settings.js";
 import { AppError } from "./utils/errors.js";
 
 export async function buildApp() {
   const app = Fastify({
+    trustProxy: env.TRUST_PROXY,
     logger: env.NODE_ENV === "development" ? { transport: { target: "pino-pretty" } } : true,
   });
 
@@ -20,7 +23,7 @@ export async function buildApp() {
         .send({ message: error.issues[0]?.message ?? "ข้อมูลไม่ถูกต้อง", issues: error.issues });
     }
     if (error instanceof AppError) {
-      return reply.code(error.statusCode).send({ message: error.message, code: error.code });
+      return reply.code(error.statusCode).send({ message: error.message, code: error.code, ...error.extra });
     }
     // error ของ Fastify/plugin ที่เป็นฝั่ง client เช่น rate limit (429), body ไม่ถูกต้อง
     const status = (error as { statusCode?: number }).statusCode;
@@ -39,6 +42,7 @@ export async function buildApp() {
     credentials: true,
     methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
+  await Promise.all([loadPlans(), loadSettings()]);
   await app.register(authPlugin);
   await app.register(socketPlugin);
   await app.register(routes, { prefix: "/api" });

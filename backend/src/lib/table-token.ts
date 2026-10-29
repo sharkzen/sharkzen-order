@@ -1,9 +1,11 @@
-import { createCipheriv, createDecipheriv, createHmac, hkdfSync } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, hkdfSync, timingSafeEqual } from "node:crypto";
 import { env } from "@/config/env.js";
 
 const derive = (info: string) => Buffer.from(hkdfSync("sha256", env.JWT_SECRET, "", info, 32));
 const encKey = derive("table-token:enc");
 const ivKey = derive("table-token:iv");
+
+const sessionKey = derive("table-session");
 
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
@@ -36,4 +38,18 @@ export function decodeTableToken(token: string) {
   } catch {
     return null;
   }
+}
+
+/**
+ * ตั๋วของรอบการนั่ง: HMAC ของ sessionId ที่ได้ตอนโหลดเมนูของรอบนั้น ใช้แนบทุกคำสั่งที่เขียนข้อมูลของโต๊ะ
+ * เปิดโต๊ะใหม่ = sessionId ใหม่ = ตั๋วของรอบก่อน (หน้าที่ค้างไว้ ลิงก์ที่เก็บไว้) ใช้สั่งไม่ได้อีก
+ */
+export const encodeSessionToken = (sessionId: string) =>
+  createHmac("sha256", sessionKey).update(sessionId).digest("base64url").slice(0, 22);
+
+export function isSessionToken(sessionId: string, token: string | undefined) {
+  if (!token) return false;
+  const expected = Buffer.from(encodeSessionToken(sessionId));
+  const given = Buffer.from(token);
+  return given.length === expected.length && timingSafeEqual(given, expected);
 }

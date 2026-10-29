@@ -5,6 +5,7 @@ import {
   resetPasswordBodySchema,
   roleBodySchema,
   updateStaffBodySchema,
+  usernameQuerySchema,
 } from "@/schemas/staff.schema.js";
 import { staffService } from "@/services/staff.service.js";
 import { SocketEvent } from "@/sockets/events.js";
@@ -13,7 +14,17 @@ import { shopHandler } from "@/utils/route.js";
 export const staffRoutes: FastifyPluginAsync = async (app) => {
   const auth = { onRequest: [app.authenticate] };
 
-  app.get("/", auth, shopHandler(({ shopId, request }) => staffService.overview(shopId, request.user.sub)));
+  app.get("/", auth, shopHandler(({ shopId }) => staffService.overview(shopId)));
+
+  /** ตรวจชื่อผู้ใช้ระหว่างพิมพ์ (ใช้ทั้งตอนสร้างและตอนแก้ไขชื่อผู้ใช้) */
+  app.get(
+    "/username-available",
+    { ...auth, config: { rateLimit: { max: 60, timeWindow: "1 minute" } } },
+    shopHandler(({ shopId, request }) => {
+      const { username, exceptId } = usernameQuerySchema.parse(request.query);
+      return staffService.checkUsername(shopId, username, exceptId);
+    }),
+  );
 
   app.post(
     "/roles",

@@ -48,15 +48,46 @@ async function findMember(shopId: string, id: string) {
   return member;
 }
 
+const USERNAME_PATTERN = /^[a-z0-9._]{4,20}$/;
+
 export const staffService = {
-  async overview(shopId: string, ownerId: string) {
+  /**
+   * ตรวจชื่อผู้ใช้ว่าใช้ได้ไหมในร้านนี้ (ชื่อซ้ำกันได้ข้ามร้าน แต่ไม่ซ้ำในร้านเดียวกัน)
+   * ถ้าซ้ำจะเสนอชื่อใกล้เคียงที่ว่างอยู่ เช่น napus -> napus257
+   */
+  async checkUsername(shopId: string, raw: string, exceptId?: string) {
+    const username = raw.trim().toLowerCase();
+    if (!USERNAME_PATTERN.test(username)) return { available: false, reason: "invalid" as const, suggestions: [] as string[] };
+    const taken = await prisma.staffMember.findFirst({
+      where: { shopId, username, ...(exceptId ? { NOT: { id: exceptId } } : {}) },
+      select: { id: true },
+    });
+    if (!taken) return { available: true, suggestions: [] as string[] };
+
+    // ตัดชื่อฐานให้เหลือที่ว่างต่อเลข 3 หลักได้ (ไม่เกิน 20 ตัว) แล้วสุ่มหาที่ยังไม่มีคนใช้
+    const base = username.slice(0, 17);
+    const candidates = new Set<string>();
+    while (candidates.size < 8) candidates.add(`${base}${100 + Math.floor(Math.random() * 900)}`);
+    const used = await prisma.staffMember.findMany({
+      where: { shopId, username: { in: [...candidates] } },
+      select: { username: true },
+    });
+    const usedNames = new Set(used.map((row) => row.username));
+    const suggestions = [...candidates].filter((name) => !usedNames.has(name)).slice(0, 3);
+    return { available: false, reason: "taken" as const, suggestions };
+  },
+
+  async overview(shopId: string) {
     await ensureBuiltinRoles(shopId);
-    const [roles, members, owner] = await Promise.all([
+    const [roles, members, shop] = await Promise.all([
       prisma.role.findMany({ where: { shopId }, orderBy: { createdAt: "asc" } }),
       prisma.staffMember.findMany({ where: { shopId }, orderBy: { createdAt: "asc" } }),
-      prisma.user.findUniqueOrThrow({ where: { id: ownerId } }),
+      prisma.shop.findUniqueOrThrow({ where: { id: shopId }, include: { owner: true } }),
     ]);
+    const owner = shop.owner;
     return {
+      /** รหัสร้านที่พนักงานใช้กรอกตอนเข้าสู่ระบบ */
+      shopCode: shop.code,
       roles: [
         {
           id: OWNER_ROLE_ID,
@@ -123,7 +154,8 @@ export const staffService = {
     if (dup) throw new AppError(409, "ชื่อผู้ใช้นี้ถูกใช้แล้ว", "DUPLICATE_USERNAME");
     return staffDto(
       await prisma.staffMember.create({
-        data: { shopId, name, username, roleId, passwordHash: await hashPassword(password) },
+        // เจ้าของร้านตั้งรหัสผ่านและแจ้งพนักงานเอง พนักงานใช้ได้เลยโดยไม่ต้องเปลี่ยนรหัสครั้งแรก
+        data: { shopId, name, username, roleId, passwordHash: await hashPassword(password), mustChangePassword: false },
       }),
     );
   },
@@ -138,7 +170,7 @@ export const staffService = {
     await findMember(shopId, id);
     await prisma.staffMember.update({
       where: { id },
-      data: { passwordHash: await hashPassword(password), mustChangePassword: true },
+      data: { passwordHash: await hashPassword(password), mustChangePassword: false },
     });
   },
 

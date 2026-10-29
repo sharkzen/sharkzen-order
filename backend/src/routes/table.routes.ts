@@ -7,7 +7,7 @@ import {
   updateTableBodySchema,
 } from "@/schemas/table.schema.js";
 import { tableService } from "@/services/table.service.js";
-import { SocketEvent } from "@/sockets/events.js";
+import { SocketEvent, emitToTable } from "@/sockets/events.js";
 import { shopHandler } from "@/utils/route.js";
 
 export const tableRoutes: FastifyPluginAsync = async (app) => {
@@ -55,18 +55,20 @@ export const tableRoutes: FastifyPluginAsync = async (app) => {
   app.post(
     "/:id/open",
     auth,
-    shopHandler(async ({ shopId, request, emit }) => {
+    shopHandler(async ({ shopId, request, emit, io }) => {
       const table = await tableService.open(shopId, idParamsSchema.parse(request.params).id);
       emit(SocketEvent.TablesChanged);
+      emitToTable(io, table.id);
       return table;
     }),
   );
   app.post(
     "/:id/close",
     auth,
-    shopHandler(async ({ shopId, request, emit }) => {
+    shopHandler(async ({ shopId, request, emit, io }) => {
       const table = await tableService.close(shopId, idParamsSchema.parse(request.params).id);
       emit(SocketEvent.TablesChanged);
+      emitToTable(io, table.id);
       return table;
     }),
   );

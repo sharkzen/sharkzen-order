@@ -8,12 +8,15 @@ import {
   safeEqualHex,
   verifyPassword,
 } from "@/lib/crypto.js";
+import { assertSelectable } from "@/lib/plans.js";
 import { billingService } from "@/services/billing.service.js";
 import { sendMail } from "@/lib/mailer.js";
 import { prisma } from "@/lib/prisma.js";
-import type { LoginBody, RegisterBody } from "@/schemas/auth.schema.js";
+import type { LoginBody, RegisterBody, StaffLoginBody } from "@/schemas/auth.schema.js";
 import { otpEmail, resetPasswordEmail } from "@/utils/email-templates.js";
-import { AppError } from "@/utils/errors.js";
+import { loadActiveStaff, type StaffContext } from "@/lib/access.js";
+import { generateTotpSecret, totpUri, verifyTotp } from "@/lib/totp.js";
+import { AppError, bannedError, shopSuspendedError } from "@/utils/errors.js";
 
 const OTP_TTL_MINUTES = 10;
 const OTP_MAX_ATTEMPTS = 5;
@@ -32,6 +35,28 @@ export const toSessionUser = (user: User) => ({
   lastName: user.lastName,
   plan: user.plan,
   billingCycle: user.billingCycle,
+  role: user.role as "OWNER" | "ADMIN" | "STAFF",
+  /** เฉพาะผู้ดูแลระบบ: เปิด 2FA แล้วหรือยัง และระบบบังคับหรือไม่ */
+  totpEnabled: user.totpEnabledAt !== null,
+  totpRequired: user.role === "ADMIN" && env.ADMIN_REQUIRE_2FA,
+  /** เจ้าของ/ผู้ดูแล = ทำได้ทุกอย่าง (undefined) พนักงาน = รายการสิทธิ์ของบทบาท */
+  permissions: undefined as string[] | undefined,
+  mustChangePassword: false,
+});
+
+/** รูปแบบเดียวกับ toSessionUser เพื่อให้ frontend ใช้โค้ดชุดเดียว (email = ชื่อผู้ใช้ของพนักงาน) */
+export const toSessionStaff = (staff: StaffContext): ReturnType<typeof toSessionUser> => ({
+  id: staff.id,
+  email: staff.username,
+  firstName: staff.name,
+  lastName: "",
+  plan: null,
+  billingCycle: null,
+  role: "STAFF",
+  totpEnabled: false,
+  totpRequired: false,
+  permissions: staff.permissions,
+  mustChangePassword: staff.mustChangePassword,
 });
 
 const toBillingCycle = (billing?: "monthly" | "yearly"): BillingCycle | undefined =>
@@ -101,7 +126,7 @@ export const authService = {
             email: body.email,
             ...data,
             // ทุกบัญชีมีร้านของตัวเองตั้งแต่สมัคร (เปลี่ยนชื่อได้ภายหลัง)
-            shop: { create: { name: `ร้านของ ${body.firstName}` } },
+            shops: { create: { name: `ร้านของ ${body.firstName}` } },
           },
         });
 
@@ -165,7 +190,7 @@ export const authService = {
     return verified;
   },
 
-  async login({ email, password }: LoginBody) {
+  async login({ email, password, code }: LoginBody) {
     const user = await prisma.user.findUnique({ where: { email } });
     const { ok, needsRehash } = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
     if (!user || !ok) throw new AppError(401, "อีเมลหรือรหัสผ่านไม่ถูกต้อง", "INVALID_CREDENTIALS");
@@ -177,6 +202,15 @@ export const authService = {
       });
     }
 
+    // ตรวจรหัสผ่านถูกแล้วจึงบอกว่าถูกแบน (ไม่เปิดเผยสถานะบัญชีให้คนเดารหัส) และไม่ออก session ให้
+    if (user.bannedAt) throw bannedError(user.banReason);
+
+    // ผู้ดูแลระบบที่เปิด 2FA ต้องส่งรหัส 6 หลักมาด้วย (ตรวจหลังรหัสผ่านถูกเท่านั้น)
+    if (user.role === "ADMIN" && user.totpEnabledAt && user.totpSecret) {
+      if (!code) throw new AppError(401, "กรอกรหัส 2FA จากแอป Authenticator", "TOTP_REQUIRED");
+      if (!verifyTotp(user.totpSecret, code)) throw new AppError(401, "รหัส 2FA ไม่ถูกต้อง", "TOTP_INVALID");
+    }
+
     if (!user.emailVerifiedAt) {
       await sendOtp(user).catch(() => undefined);
       throw new AppError(403, "ยังไม่ได้ยืนยันอีเมล เราส่งรหัสไปให้แล้ว", "EMAIL_NOT_VERIFIED");
@@ -186,13 +220,56 @@ export const authService = {
 
   async selectPlan(userId: string, plan: string, billing: "monthly" | "yearly") {
     // เริ่มช่วงทดลองฟรีของแพ็กเกจที่เลือก (ถ้าสมัครแบบชำระเงินอยู่แล้วจะไม่แตะต้อง)
-    if (plan === "starter" || plan === "growth" || plan === "multi") {
-      await billingService.selectTrialPlan(userId, plan, billing);
-    }
+    assertSelectable(plan);
+    await billingService.selectTrialPlan(userId, plan, billing);
     return prisma.user.update({
       where: { id: userId },
       data: { plan, billingCycle: toBillingCycle(billing) },
     });
+  },
+
+  /** พนักงานเข้าสู่ระบบด้วยรหัสร้าน + ชื่อผู้ใช้ + รหัสผ่าน (รหัสผ่านถูกแล้วจึงบอกสถานะระงับ/แบน) */
+  async staffLogin({ shopCode, username, password }: StaffLoginBody) {
+    const shop = await prisma.shop.findUnique({ where: { code: shopCode }, select: { id: true } });
+    const member = shop
+      ? await prisma.staffMember.findUnique({ where: { shopId_username: { shopId: shop.id, username } } })
+      : null;
+    const { ok } = await verifyPassword(password, member?.passwordHash ?? DUMMY_HASH);
+    if (!member || !ok) throw new AppError(401, "รหัสร้าน ชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง", "INVALID_CREDENTIALS");
+    const staff = await loadActiveStaff(member.id);
+    await prisma.staffMember.update({ where: { id: member.id }, data: { lastActiveAt: new Date() } });
+    return staff;
+  },
+
+  async staffChangePassword(staffId: string, currentPassword: string, newPassword: string) {
+    const member = await prisma.staffMember.findUniqueOrThrow({ where: { id: staffId } });
+    const { ok } = await verifyPassword(currentPassword, member.passwordHash);
+    if (!ok) throw new AppError(400, "รหัสผ่านปัจจุบันไม่ถูกต้อง", "INVALID_CREDENTIALS");
+    if (currentPassword === newPassword) throw new AppError(400, "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม", "SAME_PASSWORD");
+    await prisma.staffMember.update({
+      where: { id: staffId },
+      data: { passwordHash: await hashPassword(newPassword), mustChangePassword: false },
+    });
+  },
+
+  /** เริ่มตั้ง 2FA: สร้าง secret ใหม่ (ยังไม่เปิดใช้จนกว่าจะยืนยันรหัสแรก) */
+  async totpSetup(userId: string) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.role !== "ADMIN") throw new AppError(403, "เฉพาะผู้ดูแลระบบ", "FORBIDDEN");
+    if (user.totpEnabledAt) throw new AppError(409, "เปิดใช้ 2FA แล้ว", "TOTP_ALREADY_ENABLED");
+    const secret = generateTotpSecret();
+    await prisma.user.update({ where: { id: userId }, data: { totpSecret: secret } });
+    return { secret, otpauthUrl: totpUri(secret, user.email) };
+  },
+
+  async totpEnable(userId: string, code: string) {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.role !== "ADMIN") throw new AppError(403, "เฉพาะผู้ดูแลระบบ", "FORBIDDEN");
+    if (user.totpEnabledAt) throw new AppError(409, "เปิดใช้ 2FA แล้ว", "TOTP_ALREADY_ENABLED");
+    if (!user.totpSecret || !verifyTotp(user.totpSecret, code)) {
+      throw new AppError(400, "รหัส 2FA ไม่ถูกต้อง ลองใหม่อีกครั้ง", "TOTP_INVALID");
+    }
+    return prisma.user.update({ where: { id: userId }, data: { totpEnabledAt: new Date() } });
   },
 
   async getUser(id: string) {

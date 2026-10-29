@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { Server } from "socket.io";
 import { shopService } from "@/services/shop.service.js";
-import { shopRoom } from "@/sockets/events.js";
+import { SocketEvent, emitToTable, shopRoom } from "@/sockets/events.js";
 
 interface ShopContext {
   shopId: string;
@@ -16,13 +16,20 @@ interface ShopContext {
 export const shopHandler =
   <T>(fn: (ctx: ShopContext) => Promise<T> | T) =>
   async (request: FastifyRequest, reply: FastifyReply) => {
-    const shopId = await shopService.idForUser(request.user.sub);
+    const shopId = request.staff?.shopId ?? (await shopService.idForUser(request.user.sub));
     const io = request.server.io;
     return fn({
       shopId,
       request,
       reply,
       io,
-      emit: (event, payload) => io.to(shopRoom(shopId)).emit(event, payload),
+      emit: (event, payload) => {
+        io.to(shopRoom(shopId)).emit(event, payload);
+        // ออเดอร์เปลี่ยน: บอกลูกค้าของโต๊ะนั้นด้วย
+        if (event === SocketEvent.OrderCreated || event === SocketEvent.OrderUpdated) {
+          const tableId = (payload as { tableId?: unknown } | undefined)?.tableId;
+          if (typeof tableId === "string") emitToTable(io, tableId);
+        }
+      },
     });
   };

@@ -24,6 +24,21 @@ const schema = z.object({
     .string()
     .optional()
     .transform((value) => value?.replace(/\/+$/, "")),
+  /** IP/CIDR ที่เข้า /api/admin ได้ คั่นด้วย , ว่าง = ไม่จำกัด (production ควรตั้งเสมอ) */
+  ADMIN_IP_ALLOWLIST: z
+    .string()
+    .default("")
+    .transform((value) => value.split(",").map((entry) => entry.trim()).filter(Boolean)),
+  /** บังคับผู้ดูแลระบบต้องเปิด 2FA (TOTP) ก่อนใช้งาน ค่าเริ่มต้น: บังคับเฉพาะ production */
+  ADMIN_REQUIRE_2FA: z
+    .enum(["true", "false"])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : value === "true")),
+  /** เชื่อ X-Forwarded-For จาก reverse proxy (ตั้ง true เมื่ออยู่หลัง nginx/Cloudflare) เพื่อให้ IP จริงถูกต้อง */
+  TRUST_PROXY: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((value) => value === "true"),
   CORS_ORIGIN: z
     .string()
     .default("http://localhost:3000")
@@ -37,4 +52,7 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+export const env = {
+  ...parsed.data,
+  ADMIN_REQUIRE_2FA: parsed.data.ADMIN_REQUIRE_2FA ?? parsed.data.NODE_ENV === "production",
+};

@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
-import { setShopOpenBodySchema, updateShopBodySchema } from "@/schemas/shop.schema.js";
+import { createBranchBodySchema, setShopOpenBodySchema, switchBranchBodySchema, updateShopBodySchema } from "@/schemas/shop.schema.js";
 import { notificationService } from "@/services/notification.service.js";
 import { shopService } from "@/services/shop.service.js";
 import { SocketEvent } from "@/sockets/events.js";
@@ -9,6 +9,21 @@ export const shopRoutes: FastifyPluginAsync = async (app) => {
   const auth = { onRequest: [app.authenticate] };
 
   app.get("/", auth, shopHandler(({ shopId }) => shopService.get(shopId)));
+
+  // สาขาของบัญชี: ดูทั้งหมด สร้างใหม่ (สลับไปสาขานั้นให้เลย) และสลับสาขาที่จัดการอยู่
+  app.get("/branches", auth, (request) => shopService.branches(request.user.sub));
+
+  app.post("/branches", auth, async (request, reply) => {
+    const { branch } = createBranchBodySchema.parse(request.body);
+    await shopService.createBranch(request.user.sub, branch);
+    return reply.code(201).send(await shopService.branches(request.user.sub));
+  });
+
+  app.put("/branches/active", auth, async (request) => {
+    const { shopId } = switchBranchBodySchema.parse(request.body);
+    await shopService.switchBranch(request.user.sub, shopId);
+    return shopService.branches(request.user.sub);
+  });
 
   app.put(
     "/",

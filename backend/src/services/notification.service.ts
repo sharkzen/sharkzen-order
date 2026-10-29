@@ -37,16 +37,20 @@ export const notificationService = {
     return dto;
   },
 
-  /** หน้าละ limit รายการ เรียงใหม่สุดก่อน ส่ง after = id รายการสุดท้ายของหน้าก่อนเพื่อขอหน้าถัดไป */
+  /**
+   * หน้าละ limit รายการ เรียงใหม่สุดก่อน ส่ง after = id รายการสุดท้ายของหน้าก่อนเพื่อขอหน้าถัดไป
+   * ไม่รวมออเดอร์ใหม่ เพราะมีหน้าคำสั่งซื้อและครัวอยู่แล้ว
+   */
   async list(shopId: string, limit = 15, after?: string) {
+    const where = { shopId, type: { not: "ORDER_NEW" as const } };
     const [rows, unread] = await Promise.all([
       prisma.notification.findMany({
-        where: { shopId },
+        where,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: limit + 1,
         ...(after && { cursor: { id: after }, skip: 1 }),
       }),
-      prisma.notification.count({ where: { shopId, readAt: null } }),
+      prisma.notification.count({ where: { ...where, readAt: null } }),
     ]);
     return { items: rows.slice(0, limit).map(toDto), unread, hasMore: rows.length > limit };
   },

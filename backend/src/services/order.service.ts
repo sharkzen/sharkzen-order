@@ -1,7 +1,8 @@
-import type { OrderStatus, Prisma } from "@prisma/client";
+import { Prisma, type OrderStatus } from "@prisma/client";
+import { generateOrderCode, isCodeCollision } from "@/lib/order-code.js";
 import { prisma } from "@/lib/prisma.js";
 import { optionGroupsSchema, type OptionGroup } from "@/schemas/menu.schema.js";
-import { findTableByToken } from "@/services/table.service.js";
+import { assertTableSession, findTableByToken } from "@/services/table.service.js";
 import type { CreateOrderBody, ListOrdersQuery } from "@/schemas/order.schema.js";
 import { shiftDate, startOfDay, todayBangkok } from "@/utils/date.js";
 import { AppError, notFound } from "@/utils/errors.js";
@@ -11,9 +12,12 @@ type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof include }>;
 
 const ACTIVE: OrderStatus[] = ["NEW", "PREPARING", "READY"];
 
+/** ออเดอร์ที่ครัวยังไม่รับของโต๊ะเดียวกันได้ค้างพร้อมกันไม่เกินนี้ (กันสแปม ลูกค้าสั่งรอบใหม่ได้ทันทีที่ครัวรับ) */
+export const MAX_WAITING_PER_TABLE = 10;
+
 export const orderDto = (order: OrderWithRelations) => ({
   id: order.id,
-  number: order.number,
+  code: order.code,
   createdAt: order.createdAt.toISOString(),
   shopId: order.shopId,
   tableId: order.tableId,
@@ -56,7 +60,7 @@ export async function listSessionOrders(shopId: string, sessionId: string) {
   });
   return orders.map((order) => ({
     id: order.id,
-    number: order.number,
+    code: order.code,
     status: order.status,
     createdAt: order.createdAt.toISOString(),
     total: Number(order.total),
@@ -97,9 +101,79 @@ function pickOptions(menuName: string, groups: OptionGroup[], optionIds: string[
   return picked;
 }
 
+/** สร้างออเดอร์จากรายการที่เลือก: ราคาและตัวเลือกคิดจากข้อมูลเมนูบน server เสมอ */
+async function createOrder(
+  shopId: string,
+  tableId: string,
+  sessionId: string,
+  notes: string[],
+  items: CreateOrderBody["items"],
+  /** เพิ่มโดยแคชเชียร์: ข้ามครัว (ถือว่าเสิร์ฟแล้ว และครัวไม่ต้องรับทราบถ้าถูกยกเลิก) */
+  byStaff = false,
+  idempotencyKey?: string,
+) {
+  const ids = [...new Set(items.map((item) => item.menuItemId))];
+  const menuItems = await prisma.menuItem.findMany({ where: { id: { in: ids }, shopId, deletedAt: null } });
+  const byId = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
+
+  const lines = items.map((item) => {
+    const menuItem = byId.get(item.menuItemId);
+    if (!menuItem) throw new AppError(400, "ไม่พบเมนูที่สั่ง", "MENU_NOT_FOUND");
+    if (!menuItem.available) throw new AppError(400, `${menuItem.name} หมดชั่วคราว`, "MENU_UNAVAILABLE");
+    const options = pickOptions(menuItem.name, optionGroupsSchema.catch([]).parse(menuItem.optionGroups), item.options);
+    return {
+      menuItemId: menuItem.id,
+      name: menuItem.name,
+      price: Number(menuItem.price) + options.reduce((sum, option) => sum + option.price, 0),
+      options,
+      note: item.note,
+      quantity: item.quantity,
+    };
+  });
+  const total = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+
+  // รหัสสุ่มชนกันได้น้อยมาก ถ้าชนให้สุ่มใหม่
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await prisma.order.create({
+        data: {
+          code: generateOrderCode(),
+          idempotencyKey,
+          shopId,
+          tableId,
+          sessionId,
+          notes,
+          total,
+          items: { create: lines },
+          ...(byStaff && { status: "SERVED", kitchenAckAt: new Date() }),
+        },
+        include,
+      });
+    } catch (error) {
+      if (attempt >= 4 || !isCodeCollision(error)) throw error;
+    }
+  }
+}
+
 export const orderService = {
-  async list(shopId: string, { status, from, to, active, kitchen }: ListOrdersQuery) {
+  async list(shopId: string, { status, from, to, active, kitchen, q }: ListOrdersQuery) {
     if (kitchen === "true") return this.listForKitchen(shopId);
+    if (q) {
+      const orders = await prisma.order.findMany({
+        where: {
+          shopId,
+          status,
+          OR: [
+            { code: { contains: q, mode: "insensitive" } },
+            { table: { name: { contains: q, mode: "insensitive" } } },
+          ],
+        },
+        include,
+        orderBy: { createdAt: "desc" },
+        take: 100,
+      });
+      return orders.map(orderDto);
+    }
     const range =
       active === "true"
         ? undefined
@@ -154,44 +228,67 @@ export const orderService = {
    * ลูกค้าสั่งผ่าน QR (ไม่ต้องล็อกอิน) ถอดร้านและโต๊ะจาก token
    * สั่งไม่ได้ถ้าร้านปิดรับออเดอร์ หรือโต๊ะยังไม่เปิดรอบ และเมนูต้องเป็นของร้านเดียวกัน
    */
-  async create(token: string, { notes, items }: CreateOrderBody) {
+  async create(token: string, { notes, items }: CreateOrderBody, sessionToken?: string, idempotencyKey?: string) {
     const table = await findTableByToken(token);
     const tableId = table.id;
     if (!table.shop.isOpen) throw new AppError(403, "ร้านปิดรับออเดอร์ชั่วคราว", "SHOP_CLOSED");
-    if (!table.sessionId) {
-      throw new AppError(409, "โต๊ะนี้ยังไม่เปิด กรุณาแจ้งพนักงาน", "TABLE_CLOSED");
+    assertTableSession(table, sessionToken);
+
+    // ส่งซ้ำด้วยกุญแจเดิม (กดรัว/เน็ตหลุดแล้วลองใหม่) ได้ออเดอร์เดิมคืน ไม่สร้างใหม่
+    if (idempotencyKey) {
+      const existing = await prisma.order.findFirst({ where: { idempotencyKey, tableId }, include });
+      if (existing) return { order: existing, duplicate: true };
     }
 
-    const ids = [...new Set(items.map((item) => item.menuItemId))];
-    const menuItems = await prisma.menuItem.findMany({ where: { id: { in: ids }, shopId: table.shopId, deletedAt: null } });
-    const byId = new Map(menuItems.map((menuItem) => [menuItem.id, menuItem]));
-
-    const lines = items.map((item) => {
-      const menuItem = byId.get(item.menuItemId);
-      if (!menuItem) throw new AppError(400, "ไม่พบเมนูที่สั่ง", "MENU_NOT_FOUND");
-      if (!menuItem.available) throw new AppError(400, `${menuItem.name} หมดชั่วคราว`, "MENU_UNAVAILABLE");
-      const options = pickOptions(menuItem.name, optionGroupsSchema.catch([]).parse(menuItem.optionGroups), item.options);
-      return {
-        menuItemId: menuItem.id,
-        name: menuItem.name,
-        price: Number(menuItem.price) + options.reduce((sum, option) => sum + option.price, 0),
-        options,
-        note: item.note,
-        quantity: item.quantity,
-      };
+    const waiting = await prisma.order.count({
+      where: { shopId: table.shopId, sessionId: table.sessionId, status: "NEW" },
     });
-    const total = lines.reduce((sum, line) => sum + line.price * line.quantity, 0);
+    if (waiting >= MAX_WAITING_PER_TABLE) {
+      throw new AppError(429, "มีออเดอร์รอครัวรับอยู่หลายรายการแล้ว กรุณารอสักครู่แล้วสั่งต่อ", "TOO_MANY_WAITING");
+    }
 
-    return prisma.order.create({
-      data: {
-        shopId: table.shopId,
-        tableId,
-        sessionId: table.sessionId,
-        notes,
-        total,
-        items: { create: lines },
-      },
-      include,
+    try {
+      const order = await createOrder(table.shopId, tableId, table.sessionId as string, notes, items, false, idempotencyKey);
+      return { order, duplicate: false };
+    } catch (error) {
+      // สองคำขอที่กุญแจเดียวกันมาพร้อมกัน: ตัวหลังชน unique แล้วคืนออเดอร์ที่ตัวแรกสร้าง
+      if (idempotencyKey && error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        const existing = await prisma.order.findFirst({ where: { idempotencyKey, tableId }, include });
+        if (existing) return { order: existing, duplicate: true };
+      }
+      throw error;
+    }
+  },
+
+  /** แคชเชียร์เพิ่มเมนูให้โต๊ะที่เปิดอยู่ (สร้างเป็นออเดอร์ใหม่ของรอบโต๊ะนั้น สถานะเสิร์ฟแล้ว ไม่ขึ้นหน้าจอครัว) */
+  async addByStaff(shopId: string, tableId: string, items: CreateOrderBody["items"]) {
+    const table = await prisma.table.findFirst({ where: { id: tableId, shopId } });
+    if (!table) throw notFound("Table");
+    if (!table.sessionId) throw new AppError(409, "โต๊ะนี้ยังไม่เปิด", "TABLE_CLOSED");
+    return createOrder(shopId, tableId, table.sessionId, [], items, true);
+  },
+
+  /**
+   * แคชเชียร์ตั้งจำนวนจานของรายการ (คงเหลือหลังหักที่ยกเลิก) เพิ่มได้โดยเพิ่ม quantity ลดได้โดยบันทึกเป็นการยกเลิกบางจาน
+   * ออเดอร์ที่ชำระแล้วแก้ไม่ได้
+   */
+  async setItemQuantity(shopId: string, id: string, itemId: string, target: number) {
+    const order = await this.getById(shopId, id);
+    if (order.status === "CANCELLED") throw new AppError(409, "ออเดอร์นี้ถูกยกเลิกแล้ว", "ORDER_CANCELLED");
+    if (order.paymentStatus === "PAID") throw new AppError(409, "ออเดอร์ที่ชำระแล้วแก้ไขไม่ได้", "ORDER_PAID");
+    const item = order.items.find((line) => line.id === itemId);
+    if (!item) throw notFound("Order item");
+    const left = item.quantity - item.cancelledQty;
+    if (target === left) return order;
+    if (target < left) return this.cancelItem(shopId, id, itemId, left - target, "แคชเชียร์ปรับจำนวน");
+
+    const total = order.items.reduce(
+      (sum, line) => sum + Number(line.price) * (line.id === itemId ? target : line.quantity - line.cancelledQty),
+      0,
+    );
+    return prisma.$transaction(async (tx) => {
+      await tx.orderItem.update({ where: { id: itemId }, data: { quantity: item.quantity + (target - left) } });
+      return tx.order.update({ where: { id }, data: { total }, include });
     });
   },
 
@@ -208,6 +305,8 @@ export const orderService = {
     if (order.paymentStatus === "PAID" && !fromKitchen) {
       throw new AppError(409, "ออเดอร์ที่ชำระแล้วยกเลิกไม่ได้", "ORDER_PAID");
     }
+    // ชำระแล้วแต่ครัวยกเลิก: ยอดที่เหลือของออเดอร์ต้องคืนลูกค้า บันทึกไว้หักออกจากยอดเก็บเงิน
+    const refund = order.paymentStatus === "PAID" ? Number(order.total) : 0;
     return prisma.order.update({
       where: { id },
       data: {
@@ -215,6 +314,7 @@ export const orderService = {
         cancelReason: reason,
         statusChangedAt: new Date(),
         ...(fromKitchen && { kitchenAckAt: new Date() }),
+        ...(refund > 0 && { refunds: { create: { shopId, amount: refund, reason } } }),
       },
       include,
     });
@@ -252,6 +352,10 @@ export const orderService = {
         where: { id },
         data: {
           total,
+          // ชำระแล้วแต่ครัวยกเลิกบางจาน: คืนเงินเท่าราคาจานที่ยกเลิก
+          ...(order.paymentStatus === "PAID" && {
+            refunds: { create: { shopId, amount: Number(item.price) * quantity, reason } },
+          }),
           ...(allCancelled && {
             status: "CANCELLED",
             cancelReason: reason,

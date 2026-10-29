@@ -35,36 +35,41 @@ enum NotificationType {
   STAFF_CALL
 }
 
-/// ร้านอาหาร: เจ้าของหนึ่งบัญชีมีหนึ่งร้าน (ผ่อนเป็นหลายร้านได้ภายหลังโดยถอด @unique ของ ownerId)
+/// ร้านอาหาร (หนึ่งสาขา = หนึ่งแถว): เจ้าของหนึ่งบัญชีมีได้หลายสาขาตามแพ็กเกจ แต่ละสาขามีโต๊ะ เมนู พนักงาน และออเดอร์แยกกัน
 model Shop {
-  id        String     @id @default(uuid()) @db.Uuid
-  name      String
-  owner     User       @relation(fields: [ownerId], references: [id])
-  ownerId   String     @unique @db.Uuid
+  id      String @id @default(uuid()) @db.Uuid
+  name    String
+  owner   User   @relation(fields: [ownerId], references: [id])
+  ownerId String @db.Uuid
+  /// รหัสร้าน 8 ตัวอักษรที่พนักงานใช้กรอกตอนเข้าสู่ระบบ (ไม่ซ้ำทั้งระบบ)
+  code    String @unique @default(dbgenerated("upper(substr(md5((random())::text || (clock_timestamp())::text), 1, 8))"))
 
   /// เปิดรับออเดอร์อยู่หรือไม่ false = ลูกค้าสั่งไม่ได้
-  isOpen    Boolean    @default(true)
-  branch    String     @default("")
-  phone     String     @default("")
-  address   String     @default("")
+  isOpen               Boolean @default(true)
+  branch               String  @default("")
+  phone                String  @default("")
+  address              String  @default("")
   /// รูปปกร้านที่แสดงบนหน้าสั่งอาหารของลูกค้า (URL บน R2 ของร้านนี้ "" = ใช้รูปตั้งต้น)
-  coverImage String    @default("")
+  coverImage           String  @default("")
   /// เวลาเปิด-ปิดรายวัน เรียงจันทร์ถึงอาทิตย์ [{open,from,to}]
-  hours     Json       @default("[]")
-  payBeforeKitchen Boolean @default(false)
-  acceptTransfer   Boolean @default(true)
-  acceptCash       Boolean @default(true)
-  acceptCounter    Boolean @default(true)
-  promptPayId      String  @default("")
+  hours                Json    @default("[]")
+  payBeforeKitchen     Boolean @default(false)
+  acceptTransfer       Boolean @default(true)
+  acceptCash           Boolean @default(true)
+  acceptCounter        Boolean @default(true)
+  promptPayId          String  @default("")
   /// ชื่อบัญชีพร้อมเพย์: คำนำหน้า ชื่อ นามสกุล
-  promptPayTitle     String @default("")
-  promptPayFirstName String @default("")
-  promptPayLastName  String @default("")
-  serviceChargePercent Int @default(0)
-  vatIncluded      Boolean @default(true)
-  newOrderSound    Boolean @default(true)
-  newOrderPopup    Boolean @default(true)
-  dailySummary     Boolean @default(false)
+  promptPayTitle       String  @default("")
+  promptPayFirstName   String  @default("")
+  promptPayLastName    String  @default("")
+  serviceChargePercent Int     @default(0)
+  vatIncluded          Boolean @default(true)
+  newOrderSound        Boolean @default(true)
+  newOrderPopup        Boolean @default(true)
+  dailySummary         Boolean @default(false)
+  /// มีค่า = ผู้ดูแลระบบระงับสาขานี้ เจ้าของ พนักงาน และลูกค้าหน้าโต๊ะใช้งานไม่ได้
+  suspendedAt          DateTime?
+  suspendReason        String  @default("")
 
   tables        Table[]
   categories    Category[]
@@ -72,26 +77,29 @@ model Shop {
   orders        Order[]
   roles         Role[]
   bills         Bill[]
+  refunds       Refund[]
   staff         StaffMember[]
   notifications Notification[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([ownerId])
 }
 
 model Table {
-  id        String   @id @default(cuid())
-  shop      Shop     @relation(fields: [shopId], references: [id])
-  shopId    String   @db.Uuid
-  name      String
-  zone      String   @default("ในร้าน")
-  seats     Int      @default(4)
-  sortOrder Int      @default(0)
+  id              String    @id @default(cuid())
+  shop            Shop      @relation(fields: [shopId], references: [id])
+  shopId          String    @db.Uuid
+  name            String
+  zone            String    @default("ในร้าน")
+  seats           Int       @default(4)
+  sortOrder       Int       @default(0)
   /// มีค่า = เปิดโต๊ะอยู่ (ลูกค้าสแกน QR แล้วสั่งได้) ใช้แยกลูกค้าแต่ละรอบที่นั่งโต๊ะเดียวกัน
   sessionId       String?
   sessionOpenedAt DateTime?
-  orders    Order[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  orders          Order[]
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([shopId, name])
   @@index([shopId, sortOrder])
@@ -115,78 +123,87 @@ model Category {
 }
 
 model MenuItem {
-  id          String      @id @default(cuid())
-  shop        Shop        @relation(fields: [shopId], references: [id])
-  shopId      String      @db.Uuid
-  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  categoryId  String?
-  name        String
-  description String      @default("")
-  price       Decimal     @db.Decimal(10, 2)
+  id           String      @id @default(cuid())
+  shop         Shop        @relation(fields: [shopId], references: [id])
+  shopId       String      @db.Uuid
+  category     Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId   String?
+  name         String
+  description  String      @default("")
+  price        Decimal     @db.Decimal(10, 2)
   /// รูปเป็น data URL หรือ URL ภายนอก
-  image       String      @default("")
-  available   Boolean     @default(true)
+  image        String      @default("")
+  available    Boolean     @default(true)
   /// เมนูแนะนำ (เมนูขายดี) แสดงบนสุดของหน้าสั่งอาหาร ร้านละไม่เกิน 4 เมนู
-  featured    Boolean     @default(false)
+  featured     Boolean     @default(false)
   /// ลำดับภายในหมวดเดียวกัน
-  sortOrder   Int         @default(0)
+  sortOrder    Int         @default(0)
   /// เมนูที่ลบแล้วแต่เคยถูกสั่ง เก็บแถวไว้ให้ประวัติออเดอร์อ้างอิงได้ (ไม่แสดงและสั่งไม่ได้)
-  deletedAt   DateTime?
+  deletedAt    DateTime?
   /// ตัวเลือกของเมนู [{id,name,type,required,max,options:[{id,name,price,available}]}] ราคาตัวเลือกคือราคาที่บวกเพิ่มจากราคาเมนู (0 = ฟรี)
-  optionGroups Json       @default("[]")
-  items       OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  optionGroups Json        @default("[]")
+  items        OrderItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   @@index([shopId])
   @@index([categoryId, sortOrder])
 }
 
 model Order {
-  id            String        @id @default(cuid())
-  /// เลขเรียกสั้นๆ (รันต่อเนื่องทั้งระบบ) ใช้แสดงแทน id ยาว
-  number        Int           @default(autoincrement())
-  shop          Shop          @relation(fields: [shopId], references: [id])
-  shopId        String        @db.Uuid
-  table         Table         @relation(fields: [tableId], references: [id])
-  tableId       String
+  id              String        @id @default(cuid())
+  /// เลขภายใน (รันต่อเนื่องทั้งระบบ) ไม่แสดงให้ผู้ใช้เห็นเพราะบอกปริมาณออเดอร์ของระบบ
+  number          Int           @default(autoincrement())
+  /// รหัสออเดอร์ที่แสดงและใช้ค้นหา เช่น SZ-261029-K7M2QX (วันที่ไทย + ค่าสุ่ม) ไม่ซ้ำทั้งระบบ
+  code            String        @unique
+  /// กุญแจกันสั่งซ้ำ: client สร้างหนึ่งค่าต่อการกดสั่งหนึ่งครั้ง ส่งซ้ำ (เน็ตหลุด/กดรัว) จะได้ออเดอร์เดิมคืน ไม่สร้างใหม่
+  idempotencyKey  String?       @unique
+  shop            Shop          @relation(fields: [shopId], references: [id])
+  shopId          String        @db.Uuid
+  table           Table         @relation(fields: [tableId], references: [id])
+  tableId         String
   /// รอบการใช้โต๊ะที่ออเดอร์นี้อยู่ ใช้รวมบิลตอนคิดเงิน
-  sessionId     String?
-  status        OrderStatus   @default(NEW)
-  paymentStatus PaymentStatus @default(UNPAID)
-  paymentMethod PaymentMethod @default(COUNTER)
-  paidAt        DateTime?
-  total         Decimal       @db.Decimal(10, 2)
-  cancelReason  String?
+  sessionId       String?
+  status          OrderStatus   @default(NEW)
+  paymentStatus   PaymentStatus @default(UNPAID)
+  paymentMethod   PaymentMethod @default(COUNTER)
+  paidAt          DateTime?
+  /// บิลที่ออเดอร์นี้ถูกชำระรวมอยู่ ใช้พิมพ์ใบเสร็จย้อนหลัง
+  bill            Bill?         @relation(fields: [billId], references: [id])
+  billId          String?
+  total           Decimal       @db.Decimal(10, 2)
+  cancelReason    String?
   /// เวลาที่ออเดอร์เข้าสถานะปัจจุบัน ใช้คำนวณเวลารอบนหน้าจอครัว
-  statusChangedAt DateTime    @default(now())
+  statusChangedAt DateTime      @default(now())
   /// ครัวกดรับทราบการยกเลิกแล้ว (ออเดอร์ที่ยกเลิกและยังว่างอยู่จะค้างเป็นการ์ดแดงบนหน้าจอครัว)
-  kitchenAckAt  DateTime?
-  notes         String[]
-  items         OrderItem[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  kitchenAckAt    DateTime?
+  notes           String[]
+  items           OrderItem[]
+  refunds         Refund[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([status])
   @@index([tableId])
   @@index([shopId, createdAt])
   @@index([shopId, sessionId])
+  @@index([billId])
 }
 
 model OrderItem {
-  id          String   @id @default(cuid())
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId     String
-  menuItem    MenuItem @relation(fields: [menuItemId], references: [id])
-  menuItemId  String
-  name        String
-  price       Decimal  @db.Decimal(10, 2)
-  quantity    Int
+  id           String   @id @default(cuid())
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId      String
+  menuItem     MenuItem @relation(fields: [menuItemId], references: [id])
+  menuItemId   String
+  name         String
+  price        Decimal  @db.Decimal(10, 2)
+  quantity     Int
   /// ตัวเลือกที่ลูกค้าเลือก [{group,name,price}] เก็บเป็นภาพนิ่งตอนสั่ง (price ของแถวนี้รวมราคาตัวเลือกแล้ว)
-  options     Json     @default("[]")
+  options      Json     @default("[]")
   /// หมายเหตุของรายการนี้จากลูกค้า เช่น ไม่ใส่ผัก
-  note        String   @default("")
-  cancelledQty Int     @default(0)
+  note         String   @default("")
+  cancelledQty Int      @default(0)
   cancelReason String?
 
   @@index([orderId])
@@ -210,6 +227,7 @@ model Bill {
   received      Decimal?      @db.Decimal(10, 2)
   change        Decimal?      @db.Decimal(10, 2)
   paidAt        DateTime      @default(now())
+  orders        Order[]
 
   @@index([shopId, paidAt])
   @@index([sessionId])
@@ -233,19 +251,19 @@ model Role {
 }
 
 model StaffMember {
-  id                 String   @id @default(cuid())
-  shop               Shop     @relation(fields: [shopId], references: [id])
-  shopId             String   @db.Uuid
-  role               Role     @relation(fields: [roleId], references: [id])
+  id                 String    @id @default(cuid())
+  shop               Shop      @relation(fields: [shopId], references: [id])
+  shopId             String    @db.Uuid
+  role               Role      @relation(fields: [roleId], references: [id])
   roleId             String
   name               String
   username           String
   passwordHash       String
-  mustChangePassword Boolean  @default(true)
-  suspended          Boolean  @default(false)
+  mustChangePassword Boolean   @default(true)
+  suspended          Boolean   @default(false)
   lastActiveAt       DateTime?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   @@unique([shopId, username])
   @@index([roleId])
@@ -268,6 +286,11 @@ model Notification {
   @@index([shopId, readAt])
 }
 
+enum UserRole {
+  OWNER
+  ADMIN
+}
+
 enum BillingCycle {
   MONTHLY
   YEARLY
@@ -279,21 +302,30 @@ enum AuthCodeType {
 }
 
 model User {
-  id              String       @id @default(uuid()) @db.Uuid
-  email           String       @unique
-  firstName       String
-  lastName        String
-  passwordHash    String
-  emailVerifiedAt DateTime?
-  acceptedTermsAt DateTime
-  marketingConsent Boolean     @default(false)
-  plan            String?
-  billingCycle    BillingCycle?
-  shop            Shop?
-  subscription    Subscription?
-  authCodes       AuthCode[]
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id               String        @id @default(uuid()) @db.Uuid
+  email            String        @unique
+  firstName        String
+  lastName         String
+  passwordHash     String
+  emailVerifiedAt  DateTime?
+  acceptedTermsAt  DateTime
+  marketingConsent Boolean       @default(false)
+  plan             String?
+  billingCycle     BillingCycle?
+  shops            Shop[]
+  /// สาขาที่กำลังจัดการอยู่ (ว่าง = สาขาแรกที่สร้าง)
+  activeShopId     String?       @db.Uuid
+  role             UserRole      @default(OWNER)
+  /// มีค่า = ถูกแบน เข้าระบบไม่ได้ และทุกสาขาของบัญชีนี้ (รวมพนักงานและลูกค้าหน้าโต๊ะ) ใช้งานไม่ได้
+  bannedAt         DateTime?
+  banReason        String        @default("")
+  /// 2FA แบบ TOTP (ใช้กับผู้ดูแลระบบ) secret เป็น base32 เปิดใช้เมื่อ totpEnabledAt มีค่า
+  totpSecret       String?
+  totpEnabledAt    DateTime?
+  subscription     Subscription?
+  authCodes        AuthCode[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }
 
 /// OTP ยืนยันอีเมล และ token รีเซ็ตรหัสผ่าน เก็บเฉพาะค่า hash ไม่เก็บรหัสจริง
@@ -321,25 +353,83 @@ enum SubscriptionStatus {
 
 /// การสมัครแพ็กเกจของเจ้าของร้าน (หนึ่งบัญชีมีหนึ่งรายการ) ซิงก์สถานะจาก Stripe ผ่าน webhook
 model Subscription {
-  id                   String             @id @default(cuid())
-  user                 User               @relation(fields: [userId], references: [id])
-  userId               String             @unique @db.Uuid
+  id                    String             @id @default(cuid())
+  user                  User               @relation(fields: [userId], references: [id])
+  userId                String             @unique @db.Uuid
   /// starter | growth | multi
-  plan                 String
-  billingCycle         BillingCycle
-  status               SubscriptionStatus @default(TRIALING)
+  plan                  String
+  billingCycle          BillingCycle
+  status                SubscriptionStatus @default(TRIALING)
   /// สิ้นสุดช่วงทดลองฟรี (ยังไม่ผูกบัตร)
-  trialEndsAt          DateTime?
+  trialEndsAt           DateTime?
   /// สิ้นสุดรอบบิลปัจจุบัน (รอบถัดไปตัดเงินวันนี้) มีเมื่อสมัครผ่าน Stripe แล้ว
-  currentPeriodEnd     DateTime?
+  currentPeriodEnd      DateTime?
   /// ยกเลิกแล้วแต่ยังใช้ได้จนสิ้นรอบบิล
-  cancelAtPeriodEnd    Boolean            @default(false)
+  cancelAtPeriodEnd     Boolean            @default(false)
   /// card = ตัดบัตรอัตโนมัติทุกรอบ (Stripe subscription), promptpay = จ่ายครั้งเดียวต่อรอบ ต้องต่ออายุเอง
-  paymentMethod        String?
+  paymentMethod         String?
   /// Checkout session ล่าสุดที่นำมาคิดแล้ว กันนับซ้ำเมื่อทั้งหน้าเว็บและ webhook ประมวลผล session เดียวกัน
   lastCheckoutSessionId String?
-  stripeCustomerId     String?            @unique
-  stripeSubscriptionId String?            @unique
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
+  stripeCustomerId      String?            @unique
+  stripeSubscriptionId  String?            @unique
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+}
+
+/// เงินที่ต้องคืนลูกค้า: ออเดอร์/รายการที่ชำระแล้วถูกครัวยกเลิก ใช้หักออกจากยอดเก็บเงินของวัน
+model Refund {
+  id        String   @id @default(cuid())
+  shop      Shop     @relation(fields: [shopId], references: [id])
+  shopId    String   @db.Uuid
+  order     Order    @relation(fields: [orderId], references: [id])
+  orderId   String
+  amount    Decimal  @db.Decimal(10, 2)
+  reason    String
+  createdAt DateTime @default(now())
+
+  @@index([shopId, createdAt])
+  @@index([orderId])
+}
+
+/// แพ็กเกจที่ผู้ดูแลระบบกำหนด (ราคา บาท และเพดานการใช้งาน) null = ไม่จำกัด
+model Plan {
+  id            String   @id
+  name          String
+  description   String   @default("")
+  monthly       Int
+  yearly        Int
+  tablesLimit   Int?
+  staffLimit    Int?
+  branchesLimit Int      @default(1)
+  /// false = ซ่อนจากหน้าเลือกแพ็กเกจ สมัครใหม่ไม่ได้ แต่คนที่ใช้อยู่ยังใช้ต่อได้
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  /// ข้อความปุ่มบนการ์ดราคา และจุดเด่นที่แสดงเป็นรายการ
+  cta           String   @default("")
+  perks         String[]
+  /// แพ็กเกจแนะนำ (ไฮไลต์บนหน้าราคา และเป็นค่าเริ่มต้นตอนเลือก)
+  featured      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+/// ค่าตั้งระบบแบบ key/value เช่น trialDays, supportEmail
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+/// บันทึกการกระทำของผู้ดูแลระบบ ตรวจย้อนหลังได้
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String   @db.Uuid
+  adminEmail  String
+  action      String
+  targetType  String
+  targetId    String
+  targetLabel String   @default("")
+  detail      String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

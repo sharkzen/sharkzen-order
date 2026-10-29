@@ -9,6 +9,10 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post("/verify-email", limit(10), authController.verifyEmail);
   app.post("/resend-otp", limit(5), authController.resendOtp);
   app.post("/login", limit(10), authController.login);
+  app.post("/staff-login", limit(10), authController.staffLogin);
+  app.post("/staff-change-password", { onRequest: [app.authenticate], ...limit(10) }, authController.staffChangePassword);
+  app.post("/totp/setup", { onRequest: [app.authenticate], ...limit(10) }, authController.totpSetup);
+  app.post("/totp/enable", { onRequest: [app.authenticate], ...limit(10) }, authController.totpEnable);
   app.post("/logout", authController.logout);
   app.get("/me", { onRequest: [app.authenticate] }, authController.me);
   app.put("/plan", { onRequest: [app.authenticate] }, authController.selectPlan);

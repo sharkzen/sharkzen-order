@@ -8,5 +8,6 @@ export const orderRoutes: FastifyPluginAsync = async (app) => {
   app.patch("/:id/status", auth, orderController.updateStatus);
   app.post("/:id/cancel", auth, orderController.cancel);
   app.post("/:id/ack-cancel", auth, orderController.ackCancel);
+  app.patch("/:id/items/:itemId", auth, orderController.setItemQuantity);
   app.post("/:id/items/:itemId/cancel", auth, orderController.cancelItem);
 };

@@ -123,6 +123,17 @@ export const dashboardService = {
       }
     }
 
+    // เมนูขายดี 5 อันดับแรก พร้อมรูปปัจจุบันของเมนู (ออเดอร์เก็บแค่ชื่อกับราคาตอนสั่ง)
+    const popular = [...menus.entries()].sort(([, a], [, b]) => b.quantity - a.quantity).slice(0, 5);
+    const images = new Map(
+      (
+        await prisma.menuItem.findMany({
+          where: { shopId, id: { in: popular.map(([id]) => id) } },
+          select: { id: true, image: true },
+        })
+      ).map((item) => [item.id, item.image]),
+    );
+
     return {
       range: { from, to, days, granularity },
       generatedAt: new Date().toISOString(),
@@ -134,10 +145,10 @@ export const dashboardService = {
         status,
         count: statusCounts.get(status) ?? 0,
       })),
-      popular: [...menus.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 5),
+      popular: popular.map(([id, menu]) => ({ ...menu, image: images.get(id) ?? "" })),
       recent: orders.slice(0, 6).map((order) => ({
         id: order.id,
-        number: order.number,
+        code: order.code,
         createdAt: order.createdAt.toISOString(),
         table: order.table.name,
         total: Number(order.total),

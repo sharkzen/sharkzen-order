@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from "fastify";
+import { adminRoutes } from "./admin.routes.js";
 import { authRoutes } from "./auth.routes.js";
 import { billingRoutes } from "./billing.routes.js";
 import { cashierRoutes } from "./cashier.routes.js";
@@ -19,6 +20,7 @@ import { uploadRoutes } from "./upload.routes.js";
 export const routes: FastifyPluginAsync = async (app) => {
   await app.register(healthRoutes);
   await app.register(authRoutes, { prefix: "/auth" });
+  await app.register(adminRoutes, { prefix: "/admin" });
   await app.register(publicRoutes, { prefix: "/public" });
   await app.register(shopRoutes, { prefix: "/shop" });
   await app.register(dashboardRoutes, { prefix: "/dashboard" });

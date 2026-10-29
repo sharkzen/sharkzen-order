@@ -32,12 +32,16 @@ function toBill(table: TableWithOrders, bill: Bill | undefined) {
     openedAt: table.sessionOpenedAt?.toISOString() ?? null,
     rounds: billable.map((order) => ({
       orderId: order.id,
-      number: order.number,
+      code: order.code,
       createdAt: order.createdAt.toISOString(),
       served: order.status === "SERVED",
+      notes: order.notes,
       lines: order.items
         .map((item) => ({
+          id: item.id,
           name: item.name,
+          note: item.note,
+          options: (Array.isArray(item.options) ? (item.options as { name: string }[]) : []).map((option) => option.name),
           quantity: item.quantity - item.cancelledQty,
           unitPrice: Number(item.price),
         }))
@@ -49,13 +53,14 @@ function toBill(table: TableWithOrders, bill: Bill | undefined) {
 }
 
 export const cashierService = {
-  /** ยอดที่เก็บได้ตั้งแต่ 00:00 วันนี้ (เวลาไทย) ทุกโต๊ะ รวมโต๊ะที่ปิดไปแล้ว */
+  /** ยอดที่เก็บได้ตั้งแต่ 00:00 วันนี้ (เวลาไทย) ทุกโต๊ะ รวมโต๊ะที่ปิดไปแล้ว หักเงินที่คืนลูกค้า (ชำระแล้วแต่ถูกยกเลิก) */
   async collectedToday(shopId: string) {
-    const { _sum } = await prisma.bill.aggregate({
-      where: { shopId, paidAt: { gte: startOfDay(todayBangkok()) } },
-      _sum: { total: true },
-    });
-    return Number(_sum.total ?? 0);
+    const since = startOfDay(todayBangkok());
+    const [bills, refunds] = await Promise.all([
+      prisma.bill.aggregate({ where: { shopId, paidAt: { gte: since } }, _sum: { total: true } }),
+      prisma.refund.aggregate({ where: { shopId, createdAt: { gte: since } }, _sum: { amount: true } }),
+    ]);
+    return round2(Number(bills._sum.total ?? 0) - Number(refunds._sum.amount ?? 0));
   },
 
   /** บิลของโต๊ะที่เปิดอยู่ทั้งหมด (รวมโต๊ะที่จ่ายแล้วแต่ยังไม่ปิด) */
@@ -83,6 +88,41 @@ export const cashierService = {
           bySession.get(table.sessionId as string),
         ),
       ),
+    };
+  },
+
+  /**
+   * ข้อมูลใบเสร็จของบิลที่ออเดอร์นี้ถูกชำระรวมอยู่ ใช้พิมพ์ย้อนหลังจากหน้าออเดอร์
+   * ได้ทุกออเดอร์ในบิลเดียวกัน (ไม่รวมออเดอร์ที่ยกเลิก)
+   */
+  async receipt(shopId: string, orderId: string) {
+    const order = await prisma.order.findFirst({ where: { id: orderId, shopId }, select: { billId: true } });
+    if (!order) throw notFound("Order");
+    if (!order.billId) throw new AppError(409, "ออเดอร์นี้ยังไม่ได้ชำระเงิน จึงยังไม่มีใบเสร็จ", "NOT_PAID");
+    const bill = await prisma.bill.findFirstOrThrow({
+      where: { id: order.billId, shopId },
+      include: {
+        orders: { where: { status: { not: "CANCELLED" } }, orderBy: { createdAt: "asc" }, include: { items: true } },
+      },
+    });
+    return {
+      tableName: bill.tableName,
+      payment: billDto(bill),
+      rounds: bill.orders.map((o) => ({
+        orderId: o.id,
+        code: o.code,
+        createdAt: o.createdAt.toISOString(),
+        lines: o.items
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            note: item.note,
+            options: (Array.isArray(item.options) ? (item.options as { name: string }[]) : []).map((option) => option.name),
+            quantity: item.quantity - item.cancelledQty,
+            unitPrice: Number(item.price),
+          }))
+          .filter((line) => line.quantity > 0),
+      })),
     };
   },
 
@@ -114,13 +154,13 @@ export const cashierService = {
     }
 
     const paidAt = new Date();
-    const [bill] = await prisma.$transaction([
-      prisma.bill.create({
+    const bill = await prisma.$transaction(async (tx) => {
+      const created = await tx.bill.create({
         data: {
           shopId,
           tableId,
           tableName: table.name,
-          sessionId: table.sessionId,
+          sessionId: table.sessionId as string,
           method: body.method,
           subtotal,
           discount,
@@ -130,12 +170,13 @@ export const cashierService = {
           change,
           paidAt,
         },
-      }),
-      prisma.order.updateMany({
+      });
+      await tx.order.updateMany({
         where: { id: { in: unpaid.map((order) => order.id) } },
-        data: { paymentStatus: "PAID", paymentMethod: body.method, paidAt },
-      }),
-    ]);
+        data: { paymentStatus: "PAID", paymentMethod: body.method, paidAt, billId: created.id },
+      });
+      return created;
+    });
     return { bill: billDto(bill), tableName: table.name, orderIds: unpaid.map((order) => order.id) };
   },
 };

@@ -14,5 +14,5 @@
     "paths": { "@/*": ["./src/*"] },
     "types": ["node"]
   },
-  "include": ["src", "prisma"]
+  "include": ["src", "prisma", "test"]
 }
