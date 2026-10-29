@@ -1,0 +1,123 @@
+# Production / staging บน VPS เครื่องเดียว
+#
+# ใช้งาน: คัดลอก .env.example เป็น .env (ในโฟลเดอร์นี้) กรอกค่าจริง แล้ว
+#   git pull && docker compose up -d --build
+# ค่า COMPOSE_FILE ใน .env ทำให้ `docker compose` ใช้ไฟล์นี้เอง ไม่ต้องใส่ -f
+#
+# ทุกครั้งที่ up: บริการ "migrate" จะอัปเดตโครงสร้างฐานข้อมูล + seed ข้อมูลตั้งต้น (รันซ้ำได้ ไม่ทับข้อมูลเดิม)
+# แล้ว backend จึงเริ่ม จึงไม่ต้องรันคำสั่ง migrate/seed เอง ดูรายละเอียดใน docs/DEPLOY.md
+name: sharkzen-order-prod
+
+x-backend-env: &backend-env
+  NODE_ENV: production
+  PORT: 3001
+  DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+  FRONTEND_URL: https://${SITE_DOMAIN}
+  CORS_ORIGIN: https://${SITE_DOMAIN}
+  TRUST_PROXY: "true"
+  ADMIN_IP_ALLOWLIST: ${ADMIN_IP_ALLOWLIST:-}
+  ADMIN_REQUIRE_2FA: ${ADMIN_REQUIRE_2FA:-true}
+  JWT_SECRET: ${JWT_SECRET}
+  STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+  STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+  SMTP_HOST: ${SMTP_HOST:-localhost}
+  SMTP_PORT: ${SMTP_PORT:-587}
+  SMTP_USER: ${SMTP_USER:-}
+  SMTP_PASS: ${SMTP_PASS:-}
+  MAIL_FROM: ${MAIL_FROM:-SHARKZEN ORDER <no-reply@example.com>}
+  R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+  R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+  R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+  R2_BUCKET: ${R2_BUCKET:-}
+  R2_PUBLIC_URL: ${R2_PUBLIC_URL:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # รันครั้งเดียวต่อการ up: สร้าง/อัปเดตตาราง แล้ว seed (แพ็กเกจ ค่าตั้งระบบ แอดมินคนแรก) ถ้าล้มเหลว backend จะไม่เริ่ม
+  migrate:
+    build: ./backend
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *backend-env
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+    command: ["sh", "-c", "npx prisma migrate deploy && node dist/seed.js"]
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *backend-env
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: https://${SITE_DOMAIN}/api
+        NEXT_PUBLIC_SITE_URL: https://${SITE_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - backend
+      - frontend
+
+  # สำรองฐานข้อมูลอัตโนมัติทุก BACKUP_INTERVAL_HOURS ชั่วโมง เก็บ BACKUP_KEEP_DAYS วัน ไว้ที่ volume "backups"
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_INTERVAL_HOURS: ${BACKUP_INTERVAL_HOURS:-24}
+    volumes:
+      - ./ops/backup.sh:/backup.sh:ro
+      - ./ops/restore.sh:/restore.sh:ro
+      - backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - while true; do /bin/sh /backup.sh || echo "backup failed" >&2; sleep $$((BACKUP_INTERVAL_HOURS*3600)); done
+
+volumes:
+  postgres_data:
+  caddy_data:
+  backups:

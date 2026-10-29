@@ -1,0 +1,6 @@
+# ความลับบน VPS / เครื่องจริง ห้าม commit
+/.env
+.env.local
+node_modules
+.next
+dist
